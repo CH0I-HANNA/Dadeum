@@ -64,7 +64,7 @@
       "status": "completed",
       "started_at": "2026-06-01T20:32:11+0900",
       "summary": "task_store.py(인메모리 task 관리), analysis_service.py(파이프라인 조합+타임아웃), upload/analyze/thumbnail 라우터, main.py 연결 완료 — 14개 pytest 테스트 통과",
-      "completed_at": "2026-06-01T20:45:00+0900"
+      "completed_at": "2026-06-01T20:35:27+0900"
     },
     {
       "step": 8,
