@@ -13,7 +13,10 @@
     {
       "step": 1,
       "name": "pptx-parser",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-06-01T20:13:13+0900",
+      "summary": "parser.py 구현 완료 — TextElement/ImageElement/SlideRaw dataclass 정의, parse_pptx/parse_pdf/parse_file 함수 구현, 18개 pytest 테스트 통과",
+      "completed_at": "2026-06-01T20:30:00+0900"
     },
     {
       "step": 2,
