@@ -7,7 +7,8 @@
       "name": "project-setup",
       "status": "completed",
       "started_at": "2026-06-01T20:10:15+0900",
-      "summary": "frontend(Vite+React+TS+TailwindCSS v3+React Query+React Router+Axios+Lucide) 및 backend(FastAPI+Pydantic v2) 프로젝트 골격, 타입/스키마 정의, CORS 설정 완료"
+      "summary": "frontend(Vite+React+TS+TailwindCSS v3+React Query+React Router+Axios+Lucide) 및 backend(FastAPI+Pydantic v2) 프로젝트 골격, 타입/스키마 정의, CORS 설정 완료",
+      "completed_at": "2026-06-01T20:13:13+0900"
     },
     {
       "step": 1,
