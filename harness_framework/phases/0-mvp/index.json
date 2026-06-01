@@ -69,7 +69,10 @@
     {
       "step": 8,
       "name": "frontend-upload",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-06-01T20:35:27+0900",
+      "summary": "services/api.ts(uploadFile/startAnalysis/getResult/getThumbnailUrl), useUpload 훅(업로드→분석→navigate), UploadPage(드래그앤드롭+파일선택+로딩상태), ResultPage(placeholder), App.tsx 라우팅(BrowserRouter+QueryClientProvider) 구현 완료 — 빌드/린트 에러 없음",
+      "completed_at": "2026-06-01T20:38:00+0900"
     },
     {
       "step": 9,
