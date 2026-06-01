@@ -29,7 +29,10 @@
     {
       "step": 3,
       "name": "scorer",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-06-01T20:22:43+0900",
+      "summary": "scorer.py 구현 완료 — compute_consistency_score() 함수, 차원별 CV 기반 cohesion 공식, 가중치 합산(타이포0.3/색상0.3/레이아웃0.25/콘텐츠0.15), 10개 pytest 테스트 통과",
+      "completed_at": "2026-06-01T20:35:00+0900"
     },
     {
       "step": 4,
