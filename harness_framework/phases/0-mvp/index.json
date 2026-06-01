@@ -21,7 +21,10 @@
     {
       "step": 2,
       "name": "feature-extractor",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-06-01T20:18:39+0900",
+      "summary": "extractor.py 구현 완료 — SlideFeatureVector(59차원) dataclass 및 SlideFeatureExtractor 클래스 구현, to_numpy() 직렬화, 43개 pytest 테스트 통과",
+      "completed_at": "2026-06-01T20:30:00+0900"
     },
     {
       "step": 3,
