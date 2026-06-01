@@ -53,7 +53,10 @@
     {
       "step": 6,
       "name": "recommender",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-06-01T20:30:39+0900",
+      "summary": "recommender.py 구현 완료 — Recommender 클래스, 레이블별 action 문구 생성, similarity_score 기반 impact_score_delta 계산, estimate_impact_score(100 clip), 13개 pytest 테스트 통과",
+      "completed_at": "2026-06-01T20:35:00+0900"
     },
     {
       "step": 7,
