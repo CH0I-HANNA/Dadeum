@@ -37,7 +37,10 @@
     {
       "step": 4,
       "name": "outlier-detector",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-06-01T20:25:15+0900",
+      "summary": "detector.py 구현 완료 — OutlierResult dataclass 및 OutlierDetector(Isolation Forest) 클래스 구현, decision_function 0~1 정규화·반전, 슬라이드 3장 미만 빈 리스트 반환, 14개 pytest 테스트 통과",
+      "completed_at": "2026-06-01T21:00:00+0900"
     },
     {
       "step": 5,
