@@ -1,0 +1,19 @@
+# Frontend
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Backend
+backend/tmp/
+backend/.venv/
+**/__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.env
+
+# OS
+.DS_Store
+
+# Phase execution outputs
+phases/**/step*-output.json

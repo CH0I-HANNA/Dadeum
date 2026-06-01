@@ -1,0 +1,16 @@
+{
+  "project": "다듬",
+  "phase": "0-mvp",
+  "steps": [
+    { "step": 0, "name": "project-setup",      "status": "pending" },
+    { "step": 1, "name": "pptx-parser",         "status": "pending" },
+    { "step": 2, "name": "feature-extractor",   "status": "pending" },
+    { "step": 3, "name": "scorer",              "status": "pending" },
+    { "step": 4, "name": "outlier-detector",    "status": "pending" },
+    { "step": 5, "name": "explainer",           "status": "pending" },
+    { "step": 6, "name": "recommender",         "status": "pending" },
+    { "step": 7, "name": "api-layer",           "status": "pending" },
+    { "step": 8, "name": "frontend-upload",     "status": "pending" },
+    { "step": 9, "name": "frontend-result",     "status": "pending" }
+  ]
+}
