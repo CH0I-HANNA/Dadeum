@@ -37,7 +37,7 @@ export default function SlideThumbnail({
         alt={`슬라이드 ${slideNum + 1}`}
         className="w-full h-auto block"
       />
-      <span className="absolute bottom-0.5 left-1 text-[10px] text-white/70 bg-black/50 px-1 rounded">
+      <span className="absolute bottom-1 left-1 text-xs text-white/80 bg-black/60 px-1.5 py-0.5 rounded">
         {slideNum + 1}
       </span>
       {isCompare && (

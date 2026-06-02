@@ -12,7 +12,8 @@
     },
     {
       "dir": "2-bugfix-ux",
-      "status": "pending"
+      "status": "completed",
+      "completed_at": "2026-06-02T15:27:50+0900"
     }
   ]
 }

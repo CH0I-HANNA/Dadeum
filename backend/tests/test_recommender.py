@@ -109,12 +109,12 @@ class TestRecommender:
         assert "폰트 크기" in rec.action
         assert "조정 권장" in rec.action
 
-    # 6. 색상 불일치 action 형식
+    # 6. 색상 불일치 action 형식 — RGB 원시값이 노출되지 않아야 함
     def test_action_color_mismatch(self):
         rc = _make_root_cause("색상 불일치", "color", expected_value="RGB(0, 0, 0)", actual_value="RGB(255,0,0)")
         rec = self.recommender.recommend(rc, 0, self.all_vectors)
         assert "주 색상" in rec.action
-        assert "RGB(0, 0, 0)" in rec.action
+        assert "RGB" not in rec.action
 
     # 7. 레이아웃 불일치 action 형식
     def test_action_layout_mismatch(self):

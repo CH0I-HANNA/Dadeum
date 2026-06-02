@@ -181,3 +181,21 @@ class TestExplainer:
         result = self.explainer.explain(outlier, all_vectors + [fv_outlier])
         scores = [r.similarity_score for r in result]
         assert scores == sorted(scores)
+
+    # 11. 동일한 색상값을 가진 아웃라이어 슬라이드에서 color RootCause 제외
+    def test_same_color_no_color_root_cause(self):
+        # 모든 슬라이드 dominant_color_1이 (0,0,0)으로 동일 → color similarity = 1.0 → 필터됨
+        all_vectors = [_make_fv(i) for i in range(5)]
+        fv_outlier = _make_fv(5, font_idx=6)  # 폰트만 다름, 색상은 동일
+        outlier = _make_outlier(fv_outlier)
+        result = self.explainer.explain(outlier, all_vectors + [fv_outlier])
+        color_causes = [r for r in result if r.feature_group == "color"]
+        assert len(color_causes) == 0
+
+    # 12. 모든 feature가 베이스라인과 동일한 슬라이드는 RootCause가 0개
+    def test_identical_features_no_root_cause(self):
+        all_vectors = [_make_fv(i) for i in range(5)]
+        fv_outlier = _make_fv(5)  # 기본값과 동일한 feature
+        outlier = _make_outlier(fv_outlier)
+        result = self.explainer.explain(outlier, all_vectors + [fv_outlier])
+        assert len(result) == 0

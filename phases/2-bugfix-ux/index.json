@@ -5,13 +5,20 @@
     {
       "step": 0,
       "name": "backend-bugfix",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-06-02T15:21:39+0900",
+      "completed_at": "2026-06-02T15:26:06+0900",
+      "summary": "explainer.py similarity>=0.95 필터 추가 + recommender.py 색상 action에서 RGB 원시값 제거 + 관련 테스트 2개 추가 (124 passed)"
     },
     {
       "step": 1,
       "name": "frontend-ux",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-06-02T15:26:06+0900",
+      "completed_at": "2026-06-02T15:27:50+0900",
+      "summary": "RGB 색상값 컬러 스와치 렌더링(utils/color.ts 신규) + 효과 없는 제안 필터링(impact<0.05) + 슬라이드 목록 w-48→w-56 + IssueFilter 왼쪽 패널로 이동 + 슬라이드 번호 뱃지 text-xs로 확대"
     }
   ],
-  "created_at": "2026-06-02T00:00:00+0900"
+  "created_at": "2026-06-02T00:00:00+0900",
+  "completed_at": "2026-06-02T15:27:50+0900"
 }

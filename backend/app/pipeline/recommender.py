@@ -17,7 +17,7 @@ def _make_action(root_cause: RootCause) -> str:
     if label == "폰트 크기 불일치":
         return f"폰트 크기 {actual} → {expected} 로 조정 권장"
     if label == "색상 불일치":
-        return f"주 색상을 전체 기준 색상 {expected} 에 맞게 조정 권장"
+        return "주 색상을 다른 슬라이드와 통일하세요"
     if label == "레이아웃 불일치":
         return f"텍스트 영역 비율을 {expected} 에 맞게 조정 권장"
     if label == "과도한 텍스트 밀도":
