@@ -2,10 +2,35 @@
   "project": "다듬",
   "phase": "4-ml-pipeline",
   "steps": [
-    { "step": 0, "name": "data-source", "status": "pending" },
-    { "step": 1, "name": "data-prep", "status": "pending" },
-    { "step": 2, "name": "cnn-training", "status": "pending" },
-    { "step": 3, "name": "hmm-structure", "status": "pending" },
-    { "step": 4, "name": "pipeline-eval", "status": "pending" }
+    {
+      "step": 0,
+      "name": "data-source",
+      "status": "completed",
+      "summary": "NB01 데이터 소스를 stanford_slide로 교체, TARGET=10000, letterbox/checkpoint/class_weights 추가"
+    },
+    {
+      "step": 1,
+      "name": "data-prep",
+      "status": "completed",
+      "summary": "PPTX 데이터 없음 — stanford_slide 이미지 파이프라인에서 skip. PPTX 체크 셀 추가됨."
+    },
+    {
+      "step": 2,
+      "name": "cnn-training",
+      "status": "completed",
+      "summary": "NB02 CNN 개선: 슬라이드 정규화 통계(slide_norm.json), 2단계 freeze 학습, mixed precision, PCA(embeddings_pca.npy), UMAP 시각화 추가"
+    },
+    {
+      "step": 3,
+      "name": "hmm-structure",
+      "status": "completed",
+      "summary": "NB03 HMM 개선: CNN pred 시퀀스 재학습(sequences_cnn.csv), BIC 선택(n=[3..7]), 정규성 검정 기반 임계값, 길이 편향 검증"
+    },
+    {
+      "step": 4,
+      "name": "pipeline-eval",
+      "status": "completed",
+      "summary": "NB04 평가 개선: slide_norm.json 로드, PCA+전역IF, 배치 추론(InferenceDataset), Ablation, 가중치 그리드 탐색(best_alpha), final_results.json"
+    }
   ]
 }
