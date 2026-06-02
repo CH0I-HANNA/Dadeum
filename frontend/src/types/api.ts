@@ -44,6 +44,15 @@ export interface Recommendation {
   impact_score_delta: number;
 }
 
+export interface SlideStats {
+  slide_index: number;
+  word_count: number;
+  font_size_mean: number;
+  text_area_ratio: number;
+  element_count: number;
+  dominant_font: string;
+}
+
 export interface OutlierSlide {
   slide_index: number;
   anomaly_score: number;
@@ -57,4 +66,5 @@ export interface AnalysisResult {
   consistency_score: ConsistencyScore;
   outlier_slides: OutlierSlide[];
   impact_score_after_fix: number;
+  slide_stats: SlideStats[];
 }

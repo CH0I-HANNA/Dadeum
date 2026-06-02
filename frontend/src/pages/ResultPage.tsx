@@ -8,9 +8,14 @@ import DetailPanel from "../components/report/DetailPanel";
 export default function ResultPage() {
   const { taskId } = useParams<{ taskId: string }>();
   const navigate = useNavigate();
+  const { result, status, error } = useAnalysis(taskId ?? "");
   const [selectedSlide, setSelectedSlide] = useState<number | null>(null);
 
-  const { result, status, error } = useAnalysis(taskId ?? "");
+  const firstOutlierIndex =
+    result && result.outlier_slides.length > 0
+      ? result.outlier_slides[0].slide_index
+      : null;
+  const activeSlide = selectedSlide ?? firstOutlierIndex;
 
   if (status === "pending" || status === "processing") {
     return (
@@ -59,6 +64,13 @@ export default function ResultPage() {
 
         <ConsistencyScoreCard score={result.consistency_score} />
 
+        {result.outlier_slides.length > 0 && (
+          <p className="text-sm text-amber-400">
+            슬라이드 {result.slide_count}장 중{" "}
+            <span className="font-medium">{result.outlier_slides.length}장</span>에서 디자인 이상 감지
+          </p>
+        )}
+
         <p className="text-xs text-neutral-600">
           썸네일은 레이아웃을 간략히 표현한 것입니다. 실제 슬라이드 외관과 다를 수 있습니다.
         </p>
@@ -69,14 +81,15 @@ export default function ResultPage() {
               fileId={result.file_id}
               slideCount={result.slide_count}
               outlierSlides={result.outlier_slides}
-              selectedSlide={selectedSlide}
+              selectedSlide={activeSlide}
               onSelectSlide={setSelectedSlide}
             />
           </div>
           <div className="w-1/3 sticky top-6">
             <DetailPanel
-              selectedIndex={selectedSlide}
+              selectedIndex={activeSlide}
               outlierSlides={result.outlier_slides}
+              slideStats={result.slide_stats}
             />
           </div>
         </div>

@@ -44,6 +44,15 @@ class Recommendation(BaseModel):
     impact_score_delta: float
 
 
+class SlideStats(BaseModel):
+    slide_index: int
+    word_count: int
+    font_size_mean: float
+    text_area_ratio: float
+    element_count: int
+    dominant_font: str
+
+
 class OutlierSlide(BaseModel):
     slide_index: int
     anomaly_score: float
@@ -57,6 +66,7 @@ class AnalysisResult(BaseModel):
     consistency_score: ConsistencyScore
     outlier_slides: list[OutlierSlide]
     impact_score_after_fix: float
+    slide_stats: list[SlideStats] = []
 
 
 class ResultResponse(TaskStatus):

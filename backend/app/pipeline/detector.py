@@ -18,9 +18,17 @@ class OutlierResult:
     feature_vector: SlideFeatureVector
 
 
+def _dynamic_contamination(n: int) -> float:
+    if n <= 5:
+        return 0.15
+    if n <= 15:
+        return 0.20
+    return 0.25
+
+
 class OutlierDetector:
-    def __init__(self, contamination: float = 0.2) -> None:
-        self.contamination = contamination
+    def __init__(self, contamination: float | None = None) -> None:
+        self._fixed_contamination = contamination
 
     def fit_predict(
         self,
@@ -32,11 +40,17 @@ class OutlierDetector:
         if len(feature_vectors) < 3:
             return []
 
+        contamination = (
+            self._fixed_contamination
+            if self._fixed_contamination is not None
+            else _dynamic_contamination(len(feature_vectors))
+        )
+
         X = np.array([fv.to_numpy() for fv in feature_vectors])
 
         model = IsolationForest(
             n_estimators=100,
-            contamination=self.contamination,
+            contamination=contamination,
             random_state=42,
         )
         labels = model.fit_predict(X)  # 1=정상, -1=이상치

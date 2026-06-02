@@ -5,7 +5,7 @@ from pathlib import Path
 
 from app.core import task_store
 from app.core.exceptions import PipelineError
-from app.models.schemas import AnalysisResult, OutlierSlide
+from app.models.schemas import AnalysisResult, OutlierSlide, SlideStats
 from app.pipeline.detector import OutlierDetector
 from app.pipeline.explainer import Explainer
 from app.pipeline.extractor import SlideFeatureExtractor
@@ -35,6 +35,34 @@ def run_analysis(file_path: str | Path, file_id: str) -> AnalysisResult:
     recommendations_by_slide = recommender.recommend_all(root_causes_by_slide, feature_vectors)
     impact_score = recommender.estimate_impact_score(feature_vectors, recommendations_by_slide)
 
+    known_fonts = SlideFeatureExtractor.KNOWN_FONTS
+
+    slide_stats: list[SlideStats] = []
+    for i, (slide, fv) in enumerate(zip(slides, feature_vectors)):
+        word_count = sum(len(te.text.split()) for te in slide.text_elements)
+        fv_np = fv.to_numpy()
+        font_size_mean = round(float(fv_np[20]) * 72, 1)
+        text_area_ratio = float(fv_np[44])
+        element_count = len(slide.text_elements) + len(slide.image_elements)
+        font_freq = fv_np[0:20]
+        best_idx = int(font_freq.argmax())
+        if float(font_freq[best_idx]) < 1e-8:
+            dominant_font = "-"
+        elif best_idx < len(known_fonts):
+            dominant_font = known_fonts[best_idx]
+        else:
+            dominant_font = "Other"
+        slide_stats.append(
+            SlideStats(
+                slide_index=i,
+                word_count=word_count,
+                font_size_mean=font_size_mean,
+                text_area_ratio=round(text_area_ratio, 4),
+                element_count=element_count,
+                dominant_font=dominant_font,
+            )
+        )
+
     outlier_slides: list[OutlierSlide] = []
     for outlier in outlier_results:
         if not outlier.is_outlier:
@@ -55,6 +83,7 @@ def run_analysis(file_path: str | Path, file_id: str) -> AnalysisResult:
         consistency_score=consistency_score,
         outlier_slides=outlier_slides,
         impact_score_after_fix=impact_score,
+        slide_stats=slide_stats,
     )
 
 
