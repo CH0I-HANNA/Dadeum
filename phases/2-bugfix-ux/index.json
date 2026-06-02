@@ -19,5 +19,6 @@
       "summary": "RGB 색상값 컬러 스와치 렌더링(utils/color.ts 신규) + 효과 없는 제안 필터링(impact<0.05) + 슬라이드 목록 w-48→w-56 + IssueFilter 왼쪽 패널로 이동 + 슬라이드 번호 뱃지 text-xs로 확대"
     }
   ],
-  "created_at": "2026-06-02T00:00:00+0900"
+  "created_at": "2026-06-02T00:00:00+0900",
+  "completed_at": "2026-06-02T15:27:50+0900"
 }
