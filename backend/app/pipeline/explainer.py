@@ -74,6 +74,7 @@ class Explainer:
             )
 
         causes.sort(key=lambda c: c.similarity_score)
+        causes = [c for c in causes if c.similarity_score < 0.95]
         return causes[:5]
 
     def explain_all(
