@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAnalysis } from "../hooks/useAnalysis";
+import { getReportUrl } from "../services/api";
 import ConsistencyScoreCard from "../components/score/ConsistencyScoreCard";
 import SlideGrid from "../components/slides/SlideGrid";
 import IssueFilter from "../components/slides/IssueFilter";
@@ -135,6 +136,13 @@ export default function ResultPage() {
               className="shrink-0 rounded-md border border-neutral-700 text-neutral-300 text-sm px-4 py-2 hover:border-neutral-500 transition-colors duration-150"
             >
               결과 내보내기
+            </button>
+            <button
+              type="button"
+              onClick={() => window.open(getReportUrl(taskId ?? ""), "_blank")}
+              className="shrink-0 rounded-md border border-neutral-700 text-neutral-300 text-sm px-4 py-2 hover:border-neutral-500 transition-colors duration-150"
+            >
+              PDF 보고서
             </button>
           </div>
         </div>

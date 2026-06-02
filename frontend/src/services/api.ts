@@ -31,3 +31,7 @@ export async function getResult(
 export function getThumbnailUrl(fileId: string, slideNum: number): string {
   return `${BASE_URL}/api/thumbnail/${fileId}/${slideNum}`;
 }
+
+export function getReportUrl(taskId: string): string {
+  return `${BASE_URL}/api/report/${taskId}`;
+}
