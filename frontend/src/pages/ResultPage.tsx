@@ -5,6 +5,7 @@ import ConsistencyScoreCard from "../components/score/ConsistencyScoreCard";
 import SlideGrid from "../components/slides/SlideGrid";
 import IssueFilter from "../components/slides/IssueFilter";
 import type { FilterGroup } from "../components/slides/IssueFilter";
+import SlidePreview from "../components/slides/SlidePreview";
 import DetailPanel from "../components/report/DetailPanel";
 import ComparePanel from "../components/report/ComparePanel";
 import type { AnalysisResult } from "../types/api";
@@ -97,7 +98,8 @@ export default function ResultPage() {
 
   return (
     <main className="min-h-screen bg-[#0a0a0a] px-4 py-6">
-      <div className="max-w-6xl mx-auto space-y-6">
+      <div className="max-w-screen-xl mx-auto space-y-5">
+        {/* 헤더 */}
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold text-white">분석 결과</h1>
@@ -119,6 +121,7 @@ export default function ResultPage() {
           </button>
         </div>
 
+        {/* 점수 카드 */}
         <ConsistencyScoreCard score={result.consistency_score} />
 
         {result.outlier_slides.length > 0 && (
@@ -128,14 +131,26 @@ export default function ResultPage() {
           </p>
         )}
 
-        <p className="text-xs text-neutral-600">
-          썸네일은 레이아웃을 간략히 표현한 것입니다. 실제 슬라이드 외관과 다를 수 있습니다.
-        </p>
+        {/* 3패널 레이아웃 */}
+        <div className="flex gap-4 items-start">
 
-        <div className="flex gap-6 items-start">
-          <div className="w-2/3 space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              {result.outlier_slides.length > 0 && (
+          {/* 왼쪽: 슬라이드 목록 */}
+          <div className="w-48 shrink-0 space-y-3">
+            <p className="text-xs text-neutral-500 uppercase tracking-wider">슬라이드 목록</p>
+            <SlideGrid
+              fileId={result.file_id}
+              slideCount={result.slide_count}
+              outlierSlides={filteredOutlierSlides}
+              selectedSlide={activeSlide}
+              compareSlide={compareMode ? compareSlide : null}
+              onSelectSlide={handleSelectSlide}
+            />
+          </div>
+
+          {/* 가운데: 선택된 슬라이드 미리보기 */}
+          <div className="flex-1 min-w-0 space-y-3">
+            <div className="flex items-center justify-between">
+              {result.outlier_slides.length > 0 ? (
                 <IssueFilter
                   outlierSlides={result.outlier_slides}
                   activeFilter={activeFilter}
@@ -144,6 +159,8 @@ export default function ResultPage() {
                     setCompareSlide(null);
                   }}
                 />
+              ) : (
+                <div />
               )}
               <button
                 type="button"
@@ -158,6 +175,7 @@ export default function ResultPage() {
                 {compareMode ? "비교 종료" : "비교"}
               </button>
             </div>
+
             {compareMode && (
               <p className="text-xs text-neutral-500">
                 {activeSlide === null
@@ -167,16 +185,20 @@ export default function ResultPage() {
                     : `슬라이드 ${activeSlide + 1} vs ${compareSlide + 1}`}
               </p>
             )}
-            <SlideGrid
+
+            <SlidePreview
               fileId={result.file_id}
-              slideCount={result.slide_count}
-              outlierSlides={filteredOutlierSlides}
-              selectedSlide={activeSlide}
-              compareSlide={compareMode ? compareSlide : null}
-              onSelectSlide={handleSelectSlide}
+              slideIndex={activeSlide}
+              outlierSlides={result.outlier_slides}
             />
+
+            <p className="text-xs text-neutral-600">
+              썸네일은 실제 슬라이드를 렌더링한 것입니다.
+            </p>
           </div>
-          <div className="w-1/3 sticky top-6">
+
+          {/* 오른쪽: 상세 분석 */}
+          <div className="w-72 shrink-0">
             {showCompare ? (
               <ComparePanel
                 fileId={result.file_id}
