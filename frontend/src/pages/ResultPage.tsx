@@ -153,7 +153,7 @@ export default function ResultPage() {
                 try {
                   await downloadFixedFile(result.file_id, taskId ?? "");
                 } catch {
-                  alert("PPTX 파일만 수정 가능합니다.");
+                  alert("수정 파일 생성에 실패했습니다.");
                 } finally {
                   setDownloading(false);
                 }
