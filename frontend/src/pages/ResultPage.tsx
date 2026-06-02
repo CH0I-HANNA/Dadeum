@@ -135,8 +135,18 @@ export default function ResultPage() {
         <div className="flex gap-4 items-start">
 
           {/* 왼쪽: 슬라이드 목록 */}
-          <div className="w-48 shrink-0 space-y-3">
+          <div className="w-56 shrink-0 space-y-3">
             <p className="text-xs text-neutral-500 uppercase tracking-wider">슬라이드 목록</p>
+            {result.outlier_slides.length > 0 && (
+              <IssueFilter
+                outlierSlides={result.outlier_slides}
+                activeFilter={activeFilter}
+                onFilterChange={(f) => {
+                  setActiveFilter(f);
+                  setCompareSlide(null);
+                }}
+              />
+            )}
             <div className="overflow-y-auto max-h-[calc(100vh-260px)] pr-1">
               <SlideGrid
                 fileId={result.file_id}
@@ -151,19 +161,7 @@ export default function ResultPage() {
 
           {/* 가운데: 선택된 슬라이드 미리보기 */}
           <div className="flex-1 min-w-0 space-y-3">
-            <div className="flex items-center justify-between">
-              {result.outlier_slides.length > 0 ? (
-                <IssueFilter
-                  outlierSlides={result.outlier_slides}
-                  activeFilter={activeFilter}
-                  onFilterChange={(f) => {
-                    setActiveFilter(f);
-                    setCompareSlide(null);
-                  }}
-                />
-              ) : (
-                <div />
-              )}
+            <div className="flex items-center justify-end">
               <button
                 type="button"
                 onClick={toggleCompareMode}

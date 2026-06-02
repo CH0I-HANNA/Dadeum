@@ -5,10 +5,14 @@ interface Props {
 }
 
 export default function RecommendationList({ recommendations }: Props) {
-  const sorted = [...recommendations].sort(
-    (a, b) => b.impact_score_delta - a.impact_score_delta,
-  );
+  const sorted = [...recommendations]
+    .filter((r) => r.impact_score_delta >= 0.05)
+    .sort((a, b) => b.impact_score_delta - a.impact_score_delta);
   const totalDelta = sorted.reduce((sum, r) => sum + r.impact_score_delta, 0);
+
+  if (sorted.length === 0) {
+    return <p className="text-sm text-neutral-500">개선 제안이 없습니다</p>;
+  }
 
   return (
     <div>

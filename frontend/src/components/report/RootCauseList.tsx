@@ -1,4 +1,5 @@
 import type { RootCause } from "../../types/api";
+import { parseRgbString } from "../../utils/color";
 
 interface Props {
   rootCauses: RootCause[];
@@ -10,6 +11,20 @@ const GROUP_LABELS: Record<string, string> = {
   layout: "레이아웃",
   content: "콘텐츠",
 };
+
+function ColorValue({ value }: { value: string }) {
+  const parsed = parseRgbString(value);
+  if (!parsed) return <span>{value}</span>;
+  return (
+    <span className="flex items-center gap-1.5">
+      <span
+        style={{ background: parsed.css }}
+        className="w-4 h-4 rounded-full inline-block border border-neutral-600 align-middle shrink-0"
+      />
+      <span>{parsed.hex}</span>
+    </span>
+  );
+}
 
 export default function RootCauseList({ rootCauses }: Props) {
   return (
@@ -24,8 +39,11 @@ export default function RootCauseList({ rootCauses }: Props) {
               {cause.label}
             </span>
           </div>
-          <p className="text-xs text-neutral-500 leading-relaxed">
-            기대: {cause.expected_value} → 실제: {cause.actual_value}
+          <p className="text-xs text-neutral-500 leading-relaxed flex flex-wrap items-center gap-x-1 gap-y-1">
+            <span>기대:</span>
+            <ColorValue value={cause.expected_value} />
+            <span>→ 실제:</span>
+            <ColorValue value={cause.actual_value} />
           </p>
         </div>
       ))}
