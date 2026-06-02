@@ -19,6 +19,11 @@
       "dir": "3-new-features",
       "status": "completed",
       "completed_at": "2026-06-02T17:21:29+0900"
+    },
+    {
+      "dir": "4-ml-pipeline",
+      "status": "pending",
+      "description": "ML 파이프라인 노트북 작성 및 개선 가이드 (Colab 실행 기준)"
     }
   ]
 }

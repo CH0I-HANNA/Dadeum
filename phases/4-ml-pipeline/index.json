@@ -1,0 +1,41 @@
+{
+  "phase": "4-ml-pipeline",
+  "description": "ML 파이프라인 노트북 작성 및 개선 가이드 (Colab 실행 기준)",
+  "steps": [
+    {
+      "id": 0,
+      "file": "step0.md",
+      "title": "Notebook 01: 데이터 준비 개선",
+      "status": "pending",
+      "notebook": "notebooks/01_data_preparation.ipynb"
+    },
+    {
+      "id": 1,
+      "file": "step1.md",
+      "title": "Notebook 02: CNN 역할 분류기 개선",
+      "status": "pending",
+      "notebook": "notebooks/02_cnn_role_classifier.ipynb"
+    },
+    {
+      "id": 2,
+      "file": "step2.md",
+      "title": "Notebook 03: HMM 서사 구조 모델 개선",
+      "status": "pending",
+      "notebook": "notebooks/03_hmm_structure.ipynb"
+    },
+    {
+      "id": 3,
+      "file": "step3.md",
+      "title": "Notebook 04: 평가 파이프라인 개선",
+      "status": "pending",
+      "notebook": "notebooks/04_evaluation.ipynb"
+    },
+    {
+      "id": 4,
+      "file": "step4.md",
+      "title": "Notebook 01: 데이터 소스 교체 (Zenodo10K → jinaai/stanford_slide)",
+      "status": "pending",
+      "notebook": "notebooks/01_data_preparation.ipynb"
+    }
+  ]
+}
