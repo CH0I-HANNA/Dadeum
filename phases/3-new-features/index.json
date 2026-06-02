@@ -23,7 +23,7 @@
       "name": "frontend-pdf",
       "status": "completed",
       "started_at": "2026-06-02T17:17:29+0900",
-      "completed_at": "2026-06-02T17:30:00+0900",
+      "completed_at": "2026-06-02T17:18:21+0900",
       "summary": "getReportUrl을 api.ts에 추가하고, ResultPage 헤더에 PDF 보고서 버튼 추가 — 클릭 시 새 탭에서 백엔드 /api/report/{taskId} 호출"
     },
     {
