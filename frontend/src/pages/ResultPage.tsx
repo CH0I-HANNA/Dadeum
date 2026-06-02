@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAnalysis } from "../hooks/useAnalysis";
+import { getReportUrl, downloadFixedFile } from "../services/api";
 import ConsistencyScoreCard from "../components/score/ConsistencyScoreCard";
 import SlideGrid from "../components/slides/SlideGrid";
 import IssueFilter from "../components/slides/IssueFilter";
@@ -25,7 +26,16 @@ function downloadJson(result: AnalysisResult) {
 export default function ResultPage() {
   const { taskId } = useParams<{ taskId: string }>();
   const navigate = useNavigate();
-  const { result, status, error } = useAnalysis(taskId ?? "");
+  const { result, status, error, stage } = useAnalysis(taskId ?? "");
+  const [copied, setCopied] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  function handleCopyLink() {
+    navigator.clipboard.writeText(window.location.href).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  }
 
   const [selectedSlide, setSelectedSlide] = useState<number | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterGroup>("all");
@@ -70,6 +80,7 @@ export default function ResultPage() {
         <div className="flex flex-col items-center gap-4">
           <div className="w-6 h-6 border-2 border-neutral-600 border-t-amber-400 rounded-full animate-spin" />
           <p className="text-sm text-neutral-400">분석 중...</p>
+          {stage && <p className="text-xs text-neutral-500">{stage}</p>}
         </div>
       </main>
     );
@@ -112,13 +123,46 @@ export default function ResultPage() {
               )}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => downloadJson(result)}
-            className="shrink-0 rounded-md border border-neutral-700 text-neutral-300 text-sm px-4 py-2 hover:border-neutral-500 transition-colors duration-150"
-          >
-            결과 내보내기
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleCopyLink}
+              className="shrink-0 rounded-md border border-neutral-700 text-neutral-300 text-sm px-4 py-2 hover:border-neutral-500 transition-colors duration-150"
+            >
+              {copied ? "복사됨 ✓" : "링크 복사"}
+            </button>
+            <button
+              type="button"
+              onClick={() => downloadJson(result)}
+              className="shrink-0 rounded-md border border-neutral-700 text-neutral-300 text-sm px-4 py-2 hover:border-neutral-500 transition-colors duration-150"
+            >
+              결과 내보내기
+            </button>
+            <button
+              type="button"
+              onClick={() => window.open(getReportUrl(taskId ?? ""), "_blank")}
+              className="shrink-0 rounded-md border border-neutral-700 text-neutral-300 text-sm px-4 py-2 hover:border-neutral-500 transition-colors duration-150"
+            >
+              PDF 보고서
+            </button>
+            <button
+              type="button"
+              disabled={downloading}
+              onClick={async () => {
+                setDownloading(true);
+                try {
+                  await downloadFixedFile(result.file_id, taskId ?? "");
+                } catch {
+                  alert("수정 파일 생성에 실패했습니다.");
+                } finally {
+                  setDownloading(false);
+                }
+              }}
+              className="shrink-0 rounded-md border border-neutral-700 text-neutral-300 text-sm px-4 py-2 hover:border-neutral-500 transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {downloading ? "수정 중..." : "수정 파일 다운로드"}
+            </button>
+          </div>
         </div>
 
         {/* 점수 카드 */}
@@ -212,6 +256,8 @@ export default function ResultPage() {
                 selectedIndex={activeSlide}
                 outlierSlides={result.outlier_slides}
                 slideStats={result.slide_stats}
+                fileId={result.file_id}
+                taskId={taskId ?? ""}
               />
             )}
           </div>

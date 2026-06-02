@@ -16,22 +16,136 @@ router = APIRouter()
 _THUMBNAIL_WIDTH = 800
 _cache: dict[str, bytes] = {}
 
-_FONT_PATHS = [
+_FONT_DIRS = [
+    "/System/Library/Fonts",
+    "/System/Library/Fonts/Supplemental",
+    "/Library/Fonts",
+    str(Path.home() / "Library/Fonts"),
+    "/usr/share/fonts",
+]
+
+# 한글 포함 fallback 순서 (한글 폰트 우선)
+_FALLBACK_PATHS = [
+    "/System/Library/Fonts/AppleSDGothicNeo.ttc",
+    "/System/Library/Fonts/Supplemental/AppleGothic.ttf",
+    "/Library/Fonts/NanumGothic.ttf",
     "/System/Library/Fonts/Helvetica.ttc",
-    "/System/Library/Fonts/SFNSText.ttf",
-    "/System/Library/Fonts/SFNS.ttf",
     "/Library/Fonts/Arial.ttf",
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
 ]
 
+# 폰트 패밀리명 → 파일 경로 (첫 조회 시 빌드)
+_name_cache: dict[str, str] = {}
+_cache_ready = False
 
-def _load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    for path in _FONT_PATHS:
+
+def _build_name_cache() -> None:
+    global _cache_ready
+    if _cache_ready:
+        return
+    import os
+    from fontTools.ttLib import TTFont, TTCollection
+
+    def _index(tt: "TTFont", path: str) -> None:
+        fname = os.path.basename(path).lower()
+        is_regular = not any(w in fname for w in ("italic", "bold", "oblique", "light", "thin", "heavy", "black", "medium", "condensed"))
         try:
-            return ImageFont.truetype(path, max(6, size))
+            for rec in tt["name"].names:
+                if rec.nameID in (1, 4):
+                    try:
+                        key = rec.toUnicode().lower().replace(" ", "").replace("-", "")
+                        if key and (key not in _name_cache or is_regular):
+                            _name_cache[key] = path
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+    for font_dir in _FONT_DIRS:
+        if not os.path.isdir(font_dir):
+            continue
+        for root, _, files in os.walk(font_dir):
+            for fname in files:
+                if not fname.lower().endswith((".ttf", ".otf", ".ttc")):
+                    continue
+                path = os.path.join(root, fname)
+                try:
+                    if path.lower().endswith(".ttc"):
+                        for tt in TTCollection(path):
+                            _index(tt, path)
+                    else:
+                        _index(TTFont(path, lazy=True), path)
+                except Exception:
+                    stem = fname.rsplit(".", 1)[0].lower().replace(" ", "").replace("-", "")
+                    _name_cache[stem] = path
+    _cache_ready = True
+
+
+def _find_font(name: str) -> str | None:
+    _build_name_cache()
+    key = name.lower().replace(" ", "").replace("-", "")
+    if key in _name_cache:
+        return _name_cache[key]
+    for k, v in _name_cache.items():
+        if key in k or k in key:
+            return v
+    return None
+
+
+def _load_font(size: int, name: str | None = None) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    size = max(6, size)
+    if name:
+        path = _find_font(name)
+        if path:
+            try:
+                return ImageFont.truetype(path, size)
+            except Exception:
+                pass
+    for path in _FALLBACK_PATHS:
+        try:
+            return ImageFont.truetype(path, size)
         except Exception:
             continue
     return ImageFont.load_default()
+
+
+def _render_line(
+    draw: ImageDraw.ImageDraw,
+    x: int, y: int,
+    text: str,
+    name: str | None,
+    size: int,
+    color: tuple[int, int, int],
+) -> int:
+    """한글/비한글 구간을 분리해 렌더링. 지정 폰트가 한글을 지원하지 않으면 한글 구간만 fallback 사용."""
+    base = _load_font(size, name)
+    # 한글 구간용 폰트: 지정 폰트가 한글 글리프를 가지면 그대로, 없으면 fallback
+    korean = _load_font(size)  # fallback (AppleSDGothicNeo 우선)
+
+    segments: list[tuple[str, bool]] = []
+    if text:
+        cur, cur_ko = text[0], 0xAC00 <= ord(text[0]) <= 0xD7A3
+        for ch in text[1:]:
+            ko = 0xAC00 <= ord(ch) <= 0xD7A3
+            if ko == cur_ko:
+                cur += ch
+            else:
+                segments.append((cur, cur_ko))
+                cur, cur_ko = ch, ko
+        segments.append((cur, cur_ko))
+
+    cx, line_h = x, size
+    for seg, is_ko in segments:
+        font = korean if is_ko else base
+        try:
+            draw.text((cx, y), seg, fill=color, font=font)
+            bbox = draw.textbbox((cx, y), seg, font=font)
+            line_h = max(line_h, bbox[3] - bbox[1])
+            cx += bbox[2] - bbox[0]
+        except Exception:
+            draw.text((cx, y), seg, fill=color)
+            cx += size * len(seg) // 2
+    return line_h
 
 
 def _get_bg_color(slide) -> tuple[int, int, int]:
@@ -92,6 +206,7 @@ def _render_shape(shape, img: Image.Image, draw: ImageDraw.ImageDraw, scale: flo
 
             fs_pt = 18.0
             color: tuple[int, int, int] = (0, 0, 0)
+            font_name: str | None = None
             for run in para.runs:
                 if run.text:
                     try:
@@ -104,22 +219,18 @@ def _render_shape(shape, img: Image.Image, draw: ImageDraw.ImageDraw, scale: flo
                             color = (rgb[0], rgb[1], rgb[2])
                     except Exception:
                         pass
+                    try:
+                        font_name = run.font.name
+                    except Exception:
+                        pass
                     break
 
             fs_px = max(6, int(fs_pt * 12700 * scale))
-            font = _load_font(fs_px)
 
             if y_cursor + fs_px > top + height:
                 break
 
-            try:
-                draw.text((left + 4, y_cursor), line_text, fill=color, font=font)
-                bbox = draw.textbbox((left + 4, y_cursor), line_text, font=font)
-                line_h = bbox[3] - bbox[1]
-            except Exception:
-                draw.text((left + 4, y_cursor), line_text, fill=color)
-                line_h = fs_px
-
+            line_h = _render_line(draw, left + 4, y_cursor, line_text, font_name, fs_px, color)
             y_cursor += line_h + 2
 
 

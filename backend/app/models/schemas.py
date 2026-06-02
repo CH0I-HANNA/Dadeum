@@ -71,3 +71,7 @@ class AnalysisResult(BaseModel):
 
 class ResultResponse(TaskStatus):
     result: Optional[AnalysisResult] = None
+
+
+class FixRequest(BaseModel):
+    task_id: str
