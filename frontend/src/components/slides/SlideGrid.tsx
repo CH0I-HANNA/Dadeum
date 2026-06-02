@@ -21,7 +21,7 @@ export default function SlideGrid({
   const outlierSet = new Set(outlierSlides.map((s) => s.slide_index));
 
   return (
-    <div className="grid grid-cols-4 gap-3">
+    <div className="grid grid-cols-3 gap-3">
       {Array.from({ length: slideCount }, (_, i) => (
         <SlideThumbnail
           key={i}
