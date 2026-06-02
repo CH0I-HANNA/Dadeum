@@ -192,10 +192,11 @@ class TestExplainer:
         color_causes = [r for r in result if r.feature_group == "color"]
         assert len(color_causes) == 0
 
-    # 12. 모든 feature가 베이스라인과 동일한 슬라이드는 RootCause가 0개
-    def test_identical_features_no_root_cause(self):
+    # 12. is_outlier=True인 슬라이드는 feature가 베이스라인과 동일하더라도
+    #     반드시 최소 1개의 RootCause를 반환한다 (이상 슬라이드 = 반드시 원인 표시)
+    def test_outlier_always_has_at_least_one_root_cause(self):
         all_vectors = [_make_fv(i) for i in range(5)]
         fv_outlier = _make_fv(5)  # 기본값과 동일한 feature
         outlier = _make_outlier(fv_outlier)
         result = self.explainer.explain(outlier, all_vectors + [fv_outlier])
-        assert len(result) == 0
+        assert len(result) >= 1

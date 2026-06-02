@@ -74,8 +74,11 @@ class Explainer:
             )
 
         causes.sort(key=lambda c: c.similarity_score)
-        causes = [c for c in causes if c.similarity_score < 0.95]
-        return causes[:5]
+        filtered = [c for c in causes if c.similarity_score < 0.95]
+        # 이상 슬라이드는 원인이 최소 1개 있어야 하므로 필터 결과가 비면 가장 낮은 것 유지
+        if not filtered:
+            filtered = causes[:1]
+        return filtered[:5]
 
     def explain_all(
         self,
