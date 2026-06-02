@@ -1,0 +1,11 @@
+{
+  "project": "다듬",
+  "phase": "5-research-quality",
+  "steps": [
+    { "step": 0, "name": "eval-realign", "status": "pending" },
+    { "step": 1, "name": "clip-weak-label", "status": "pending" },
+    { "step": 2, "name": "baseline-suite", "status": "pending" },
+    { "step": 3, "name": "sensitivity-analysis", "status": "pending" },
+    { "step": 4, "name": "stats-significance", "status": "pending" }
+  ]
+}
