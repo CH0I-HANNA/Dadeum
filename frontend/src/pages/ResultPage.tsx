@@ -100,7 +100,7 @@ export default function ResultPage() {
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold text-white">분석 결과</h1>
+            <h1 className="text-2xl font-semibold text-white">분석 결과 <span className="text-xs text-amber-400">v2</span></h1>
             <p className="mt-1 text-sm text-neutral-400">
               슬라이드 {result.slide_count}장
               {result.slide_count < 3 && (
