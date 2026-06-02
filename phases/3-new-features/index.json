@@ -7,7 +7,8 @@
       "name": "frontend-share-progress",
       "status": "completed",
       "started_at": "2026-06-02T17:11:05+0900",
-      "summary": "ResultPage에 링크 복사 버튼 추가, useAnalysis에 stage 필드 추가하여 분석 진행 단계 표시"
+      "summary": "ResultPage에 링크 복사 버튼 추가, useAnalysis에 stage 필드 추가하여 분석 진행 단계 표시",
+      "completed_at": "2026-06-02T17:16:01+0900"
     },
     {
       "step": 1,
