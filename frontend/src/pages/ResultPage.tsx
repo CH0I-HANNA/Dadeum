@@ -25,7 +25,15 @@ function downloadJson(result: AnalysisResult) {
 export default function ResultPage() {
   const { taskId } = useParams<{ taskId: string }>();
   const navigate = useNavigate();
-  const { result, status, error } = useAnalysis(taskId ?? "");
+  const { result, status, error, stage } = useAnalysis(taskId ?? "");
+  const [copied, setCopied] = useState(false);
+
+  function handleCopyLink() {
+    navigator.clipboard.writeText(window.location.href).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  }
 
   const [selectedSlide, setSelectedSlide] = useState<number | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterGroup>("all");
@@ -70,6 +78,7 @@ export default function ResultPage() {
         <div className="flex flex-col items-center gap-4">
           <div className="w-6 h-6 border-2 border-neutral-600 border-t-amber-400 rounded-full animate-spin" />
           <p className="text-sm text-neutral-400">분석 중...</p>
+          {stage && <p className="text-xs text-neutral-500">{stage}</p>}
         </div>
       </main>
     );
@@ -112,13 +121,22 @@ export default function ResultPage() {
               )}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => downloadJson(result)}
-            className="shrink-0 rounded-md border border-neutral-700 text-neutral-300 text-sm px-4 py-2 hover:border-neutral-500 transition-colors duration-150"
-          >
-            결과 내보내기
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleCopyLink}
+              className="shrink-0 rounded-md border border-neutral-700 text-neutral-300 text-sm px-4 py-2 hover:border-neutral-500 transition-colors duration-150"
+            >
+              {copied ? "복사됨 ✓" : "링크 복사"}
+            </button>
+            <button
+              type="button"
+              onClick={() => downloadJson(result)}
+              className="shrink-0 rounded-md border border-neutral-700 text-neutral-300 text-sm px-4 py-2 hover:border-neutral-500 transition-colors duration-150"
+            >
+              결과 내보내기
+            </button>
+          </div>
         </div>
 
         {/* 점수 카드 */}

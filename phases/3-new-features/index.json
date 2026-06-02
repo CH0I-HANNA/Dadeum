@@ -1,0 +1,34 @@
+{
+  "project": "다듬",
+  "phase": "3-new-features",
+  "steps": [
+    {
+      "step": 0,
+      "name": "frontend-share-progress",
+      "status": "completed",
+      "started_at": "2026-06-02T17:11:05+0900",
+      "summary": "ResultPage에 링크 복사 버튼 추가, useAnalysis에 stage 필드 추가하여 분석 진행 단계 표시"
+    },
+    {
+      "step": 1,
+      "name": "backend-pdf",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "frontend-pdf",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "backend-fix-preview",
+      "status": "pending"
+    },
+    {
+      "step": 4,
+      "name": "frontend-fix-preview",
+      "status": "pending"
+    }
+  ],
+  "created_at": "2026-06-02T17:11:05+0900"
+}
