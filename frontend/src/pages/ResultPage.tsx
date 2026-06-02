@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAnalysis } from "../hooks/useAnalysis";
+import { getThumbnailUrl } from "../services/api";
 import ConsistencyScoreCard from "../components/score/ConsistencyScoreCard";
 import SlideGrid from "../components/slides/SlideGrid";
 import IssueFilter from "../components/slides/IssueFilter";
@@ -128,36 +129,28 @@ export default function ResultPage() {
           </p>
         )}
 
-        <p className="text-xs text-neutral-600">
-          썸네일은 레이아웃을 간략히 표현한 것입니다. 실제 슬라이드 외관과 다를 수 있습니다.
-        </p>
-
-        <div className="flex gap-6 items-start">
-          <div className="w-2/3 space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              {result.outlier_slides.length > 0 && (
-                <IssueFilter
-                  outlierSlides={result.outlier_slides}
-                  activeFilter={activeFilter}
-                  onFilterChange={(f) => {
-                    setActiveFilter(f);
-                    setCompareSlide(null);
-                  }}
-                />
-              )}
-              <button
-                type="button"
-                onClick={toggleCompareMode}
-                className={[
-                  "shrink-0 text-xs px-3 py-1 rounded-sm border transition-colors duration-150",
-                  compareMode
-                    ? "border-white text-white"
-                    : "border-neutral-700 text-neutral-400 hover:border-neutral-500",
-                ].join(" ")}
-              >
-                {compareMode ? "비교 종료" : "비교"}
-              </button>
-            </div>
+        {result.outlier_slides.length > 0 && (
+          <div className="flex items-center gap-3">
+            <IssueFilter
+              outlierSlides={result.outlier_slides}
+              activeFilter={activeFilter}
+              onFilterChange={(f) => {
+                setActiveFilter(f);
+                setCompareSlide(null);
+              }}
+            />
+            <button
+              type="button"
+              onClick={toggleCompareMode}
+              className={[
+                "shrink-0 text-xs px-3 py-1 rounded-sm border transition-colors duration-150",
+                compareMode
+                  ? "border-white text-white"
+                  : "border-neutral-700 text-neutral-400 hover:border-neutral-500",
+              ].join(" ")}
+            >
+              {compareMode ? "비교 종료" : "비교"}
+            </button>
             {compareMode && (
               <p className="text-xs text-neutral-500">
                 {activeSlide === null
@@ -167,6 +160,12 @@ export default function ResultPage() {
                     : `슬라이드 ${activeSlide + 1} vs ${compareSlide + 1}`}
               </p>
             )}
+          </div>
+        )}
+
+        <div className="flex gap-4 items-start">
+          {/* 왼쪽: 썸네일 스트립 */}
+          <div className="w-40 shrink-0 overflow-y-auto max-h-[calc(100vh-220px)] pr-1">
             <SlideGrid
               fileId={result.file_id}
               slideCount={result.slide_count}
@@ -176,7 +175,43 @@ export default function ResultPage() {
               onSelectSlide={handleSelectSlide}
             />
           </div>
-          <div className="w-1/3 sticky top-6">
+
+          {/* 중앙: 선택된 슬라이드 뷰어 */}
+          <div className="flex-1 min-w-0">
+            {showCompare ? (
+              <div className="flex gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-neutral-500 mb-1">슬라이드 {activeSlide! + 1}</p>
+                  <img
+                    src={getThumbnailUrl(result.file_id, activeSlide!)}
+                    alt={`슬라이드 ${activeSlide! + 1}`}
+                    className="w-full rounded-lg"
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-neutral-500 mb-1">슬라이드 {compareSlide! + 1}</p>
+                  <img
+                    src={getThumbnailUrl(result.file_id, compareSlide!)}
+                    alt={`슬라이드 ${compareSlide! + 1}`}
+                    className="w-full rounded-lg"
+                  />
+                </div>
+              </div>
+            ) : activeSlide !== null ? (
+              <img
+                src={getThumbnailUrl(result.file_id, activeSlide)}
+                alt={`슬라이드 ${activeSlide + 1}`}
+                className="w-full rounded-lg"
+              />
+            ) : (
+              <div className="aspect-video bg-neutral-900 rounded-lg flex items-center justify-center">
+                <p className="text-sm text-neutral-500">슬라이드를 선택하세요</p>
+              </div>
+            )}
+          </div>
+
+          {/* 오른쪽: 상세 패널 */}
+          <div className="w-72 shrink-0 sticky top-6">
             {showCompare ? (
               <ComparePanel
                 fileId={result.file_id}
