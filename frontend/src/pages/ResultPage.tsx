@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAnalysis } from "../hooks/useAnalysis";
-import { getThumbnailUrl } from "../services/api";
 import ConsistencyScoreCard from "../components/score/ConsistencyScoreCard";
 import SlideGrid from "../components/slides/SlideGrid";
 import IssueFilter from "../components/slides/IssueFilter";
@@ -138,14 +137,16 @@ export default function ResultPage() {
           {/* 왼쪽: 슬라이드 목록 */}
           <div className="w-48 shrink-0 space-y-3">
             <p className="text-xs text-neutral-500 uppercase tracking-wider">슬라이드 목록</p>
-            <SlideGrid
-              fileId={result.file_id}
-              slideCount={result.slide_count}
-              outlierSlides={filteredOutlierSlides}
-              selectedSlide={activeSlide}
-              compareSlide={compareMode ? compareSlide : null}
-              onSelectSlide={handleSelectSlide}
-            />
+            <div className="overflow-y-auto max-h-[calc(100vh-260px)] pr-1">
+              <SlideGrid
+                fileId={result.file_id}
+                slideCount={result.slide_count}
+                outlierSlides={filteredOutlierSlides}
+                selectedSlide={activeSlide}
+                compareSlide={compareMode ? compareSlide : null}
+                onSelectSlide={handleSelectSlide}
+              />
+            </div>
           </div>
 
           {/* 가운데: 선택된 슬라이드 미리보기 */}
