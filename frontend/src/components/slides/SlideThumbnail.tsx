@@ -5,6 +5,7 @@ interface Props {
   slideNum: number;
   isOutlier: boolean;
   isSelected: boolean;
+  isCompare?: boolean;
   onClick: () => void;
 }
 
@@ -13,6 +14,7 @@ export default function SlideThumbnail({
   slideNum,
   isOutlier,
   isSelected,
+  isCompare = false,
   onClick,
 }: Props) {
   const url = getThumbnailUrl(fileId, slideNum);
@@ -27,6 +29,7 @@ export default function SlideThumbnail({
           ? "border-2 border-amber-400 ring-1 ring-amber-400/20"
           : "border border-neutral-800",
         isSelected ? "ring-2 ring-white/30" : "",
+        isCompare ? "ring-2 ring-neutral-400/50" : "",
       ]
         .filter(Boolean)
         .join(" ")}
@@ -39,6 +42,16 @@ export default function SlideThumbnail({
       <span className="absolute bottom-1 left-1 text-xs text-white/70 bg-black/50 px-1 rounded">
         {slideNum + 1}
       </span>
+      {isCompare && (
+        <span className="absolute top-1 right-1 text-xs text-neutral-300 bg-black/60 px-1 rounded">
+          B
+        </span>
+      )}
+      {isSelected && (
+        <span className="absolute top-1 right-1 text-xs text-white bg-black/60 px-1 rounded">
+          A
+        </span>
+      )}
     </button>
   );
 }

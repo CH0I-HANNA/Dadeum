@@ -6,6 +6,7 @@ interface Props {
   slideCount: number;
   outlierSlides: OutlierSlide[];
   selectedSlide: number | null;
+  compareSlide?: number | null;
   onSelectSlide: (index: number) => void;
 }
 
@@ -14,6 +15,7 @@ export default function SlideGrid({
   slideCount,
   outlierSlides,
   selectedSlide,
+  compareSlide = null,
   onSelectSlide,
 }: Props) {
   const outlierSet = new Set(outlierSlides.map((s) => s.slide_index));
@@ -27,6 +29,7 @@ export default function SlideGrid({
           slideNum={i}
           isOutlier={outlierSet.has(i)}
           isSelected={selectedSlide === i}
+          isCompare={compareSlide === i}
           onClick={() => onSelectSlide(i)}
         />
       ))}
