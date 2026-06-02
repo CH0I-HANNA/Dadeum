@@ -35,3 +35,21 @@ export function getThumbnailUrl(fileId: string, slideNum: number): string {
 export function getReportUrl(taskId: string): string {
   return `${BASE_URL}/api/report/${taskId}`;
 }
+
+export function getPreviewFixUrl(fileId: string, slideNum: number, taskId: string): string {
+  return `${BASE_URL}/api/preview-fix/${fileId}/${slideNum}?task_id=${taskId}`;
+}
+
+export async function downloadFixedFile(fileId: string, taskId: string): Promise<void> {
+  const response = await client.post(
+    `/api/fix/${fileId}`,
+    { task_id: taskId },
+    { responseType: "blob" }
+  );
+  const url = URL.createObjectURL(new Blob([response.data]));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `dadeum-fixed-${fileId.slice(0, 8)}.pptx`;
+  a.click();
+  URL.revokeObjectURL(url);
+}

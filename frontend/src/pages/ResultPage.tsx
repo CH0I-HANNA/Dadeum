@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAnalysis } from "../hooks/useAnalysis";
-import { getReportUrl } from "../services/api";
+import { getReportUrl, downloadFixedFile } from "../services/api";
 import ConsistencyScoreCard from "../components/score/ConsistencyScoreCard";
 import SlideGrid from "../components/slides/SlideGrid";
 import IssueFilter from "../components/slides/IssueFilter";
@@ -28,6 +28,7 @@ export default function ResultPage() {
   const navigate = useNavigate();
   const { result, status, error, stage } = useAnalysis(taskId ?? "");
   const [copied, setCopied] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   function handleCopyLink() {
     navigator.clipboard.writeText(window.location.href).then(() => {
@@ -144,6 +145,23 @@ export default function ResultPage() {
             >
               PDF 보고서
             </button>
+            <button
+              type="button"
+              disabled={downloading}
+              onClick={async () => {
+                setDownloading(true);
+                try {
+                  await downloadFixedFile(result.file_id, taskId ?? "");
+                } catch {
+                  alert("PPTX 파일만 수정 가능합니다.");
+                } finally {
+                  setDownloading(false);
+                }
+              }}
+              className="shrink-0 rounded-md border border-neutral-700 text-neutral-300 text-sm px-4 py-2 hover:border-neutral-500 transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {downloading ? "수정 중..." : "수정 파일 다운로드"}
+            </button>
           </div>
         </div>
 
@@ -238,6 +256,8 @@ export default function ResultPage() {
                 selectedIndex={activeSlide}
                 outlierSlides={result.outlier_slides}
                 slideStats={result.slide_stats}
+                fileId={result.file_id}
+                taskId={taskId ?? ""}
               />
             )}
           </div>
