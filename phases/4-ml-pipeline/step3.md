@@ -1,404 +1,227 @@
-# Step 3: Notebook 04 — 평가 파이프라인 개선
-
-## 개요
-
-`notebooks/04_evaluation.ipynb`는 CNN + HMM 파이프라인의 이상 탐지 성능을 SlideAudit 데이터셋으로 측정한다.  
-현재 코드는 4가지 핵심 문제가 있다.
-
-1. **슬라이드 단위 배치 추론 없음**: 이미지 하나씩 GPU로 보내는 for 루프는 A100에서 10~20배 느리다.
-2. **점수 가중치 근거 없음**: `0.7 × IF + 0.3 × HMM`은 임의 값이다. 그리드 탐색으로 최적 가중치를 찾아야 한다.
-3. **Ablation 없음**: IF만 / HMM만 / 결합이 각각 얼마나 기여하는지 알 수 없다.
-4. **결함 유형별 분석 없음**: SlideAudit의 폰트/색상/레이아웃 결함을 구분하지 않고 뭉뚱그려 AUC를 계산한다.
-
----
+# Step 3: hmm-structure
 
 ## 읽어야 할 파일
 
-- `notebooks/04_evaluation.ipynb` — 전체 흐름
-- `notebooks/02_cnn_role_classifier.ipynb` — SlideRoleClassifier 정의 (동일하게 복사)
-- `notebooks/03_hmm_structure.ipynb` — hmm_thresholds.json 구조 확인
+먼저 아래 파일들을 읽고 프로젝트 구조와 설계 의도를 파악하라:
+
+- `/Users/choehanna/Documents/Dadeum/CLAUDE.md`
+- `/Users/choehanna/Documents/Dadeum/docs/ARCHITECTURE.md`
+- `/Users/choehanna/Documents/Dadeum/notebooks/03_hmm_structure.ipynb`
+- `/Users/choehanna/Documents/Dadeum/phases/4-ml-pipeline/step2.md` — CNN 학습 후 생성 파일 목록 확인
+  - `labels/labeled_with_preds.csv` (CNN pred_label 포함)
+  - `models/pca_model.pkl`, `labels/embeddings_pca.npy`
+
+이전 step(cnn-training)에서 CNN이 학습되고 `labeled_with_preds.csv`에 `pred_label` 컬럼이 추가됐다.
+HMM은 반드시 weak_label이 아닌 `pred_label` 기반 시퀀스로 학습해야 한다.
+추론 시에도 CNN 예측 역할을 시퀀스로 사용하기 때문에, 학습과 추론의 분포가 일치해야 한다.
 
 ---
 
-## 개선 작업
+## 작업
 
-### 1. 배치 추론으로 교체 — DataLoader 사용
+`notebooks/03_hmm_structure.ipynb`에 아래 개선 사항을 적용한다.
 
-`compute_anomaly_score` 내부의 이미지-by-이미지 for 루프를 제거하고 DataLoader 배치 추론으로 교체한다.
+### 1. CNN 예측 기반 시퀀스 재생성
 
-**새 헬퍼 클래스 추가 (모델 정의 셀 다음에):**
+`## 1. 시퀀스 데이터 로드` 섹션 앞에 아래 셀을 삽입한다.
+`labeled_with_preds.csv`가 있으면 `pred_label`을 사용하고, 없으면 `weak_label`로 fallback한다:
 
 ```python
-from torch.utils.data import Dataset, DataLoader
+from pathlib import Path
+import pandas as pd
 
-class InferenceDataset(Dataset):
-    def __init__(self, image_paths: list[str], transform):
-        self.paths = image_paths
-        self.transform = transform
+pred_csv = Path(f'{LABELS_DIR}/labeled_with_preds.csv')
 
-    def __len__(self):
-        return len(self.paths)
+if pred_csv.exists():
+    pred_df   = pd.read_csv(pred_csv)
+    label_col = 'pred_label'
+    print(f'CNN 예측 기반 시퀀스 사용 (labeled_with_preds.csv)')
+else:
+    pred_df   = pd.read_csv(f'{LABELS_DIR}/weak_labels.csv')
+    label_col = 'weak_label'
+    print('⚠ CNN 예측 없음 — weak_label 사용 (step2 먼저 실행 권장)')
 
-    def __getitem__(self, idx):
-        img = Image.open(self.paths[idx]).convert('RGB')
-        return self.transform(img), self.paths[idx]
+sequences_cnn = []
+for deck_id, group in pred_df.groupby('deck_id'):
+    group = group.sort_values('slide_idx')
+    seq   = group[label_col].tolist()
+    if len(seq) < 2:
+        continue
+    sequences_cnn.append({'deck_id': deck_id, 'sequence': seq, 'length': len(seq)})
 
-
-def extract_embeddings_batch(
-    image_paths: list[str],
-    model: nn.Module,
-    transform,
-    batch_size: int = 64,
-) -> tuple[np.ndarray, np.ndarray]:
-    """
-    이미지 경로 리스트를 받아 (embeddings, pred_roles) 반환.
-    GPU 배치 추론으로 단일 이미지 루프 대비 10~20× 빠름.
-    """
-    dataset = InferenceDataset(image_paths, transform)
-    loader = DataLoader(dataset, batch_size=batch_size, shuffle=False,
-                        num_workers=2, pin_memory=True)
-
-    all_emb, all_roles = [], []
-    model.eval()
-    with torch.no_grad():
-        for imgs, _ in loader:
-            imgs = imgs.to(device)
-            emb = model.extract_features(imgs)          # (B, 1536)
-            logits = model.classifier(emb)
-            roles = logits.argmax(dim=1)
-            all_emb.append(emb.cpu().numpy())
-            all_roles.append(roles.cpu().numpy())
-
-    return np.concatenate(all_emb), np.concatenate(all_roles)
+seq_df = pd.DataFrame(sequences_cnn)
+seq_df.to_csv(f'{LABELS_DIR}/sequences_cnn.csv', index=False)
+print(f'CNN 기반 시퀀스: {len(seq_df)}개')
 ```
 
-`compute_anomaly_score`를 배치 추론 버전으로 교체한다:
+CSV로 저장된 `sequence` 컬럼은 `"[0, 2, 4]"` 형태의 문자열로 읽힌다.
+기존 노트북의 `seq_df['sequence'].apply(ast.literal_eval)` 파싱 코드가 이미 있는지 확인하고,
+없으면 아래를 추가한다:
 
 ```python
-def compute_anomaly_score(image_paths: list[str]) -> dict:
-    if len(image_paths) < 2:
-        return {'slide_scores': [0.5] * len(image_paths),
-                'pred_roles': [2] * len(image_paths),
-                'deck_structural_score': 0.5,
-                'if_scores': [0.5] * len(image_paths)}
-
-    # 배치 추론 (단일 이미지 루프 제거)
-    embeddings_np, pred_roles = extract_embeddings_batch(image_paths, cnn_model, transform)
-
-    # Isolation Forest (덱 내)
-    if len(embeddings_np) >= 3:
-        iso = IsolationForest(n_estimators=100, contamination=0.2, random_state=42)
-        iso.fit(embeddings_np)
-        raw = iso.decision_function(embeddings_np)
-        s_min, s_max = raw.min(), raw.max()
-        if_scores = 1.0 - (raw - s_min) / (s_max - s_min + 1e-8)
-    else:
-        if_scores = np.full(len(embeddings_np), 0.5)
-
-    # HMM 구조 점수
-    seq = pred_roles.reshape(-1, 1)
-    log_likelihood = hmm_model.score(seq) / len(seq)
-    z = (thresholds['mean'] - log_likelihood) / (thresholds['std'] + 1e-8)
-    hmm_score = float(np.clip(z / 3.0, 0, 1))
-
-    return {
-        'slide_scores': (0.7 * if_scores + 0.3 * hmm_score).tolist(),
-        'pred_roles': pred_roles.tolist(),
-        'deck_structural_score': hmm_score,
-        'if_scores': if_scores.tolist(),
-        'hmm_score': hmm_score,
-    }
+import ast
+seq_df['sequence'] = seq_df['sequence'].apply(ast.literal_eval)
 ```
 
----
+이후 모든 셀에서 `seq_df`를 이 CNN 기반 버전으로 사용한다.
 
-### 1-B. IsolationForest 전역 학습으로 개선
+### 2. BIC 기반 n_components 선택
 
-현재 `compute_anomaly_score` 내에서 `IsolationForest`를 덱마다 새로 `fit`한다.  
-슬라이드가 5장인 덱에서 fit하면 outlier 판정에 통계적 의미가 없고(샘플 수 부족), 덱마다 수백 번 fit하므로 매우 느리다.
-
-올바른 접근: Notebook 01/02에서 수집한 전체 임베딩으로 IF를 한 번 학습하고 저장한다.
+현재 val log-likelihood 최대값으로 선택하는 코드를 BIC 최솟값 기준으로 교체한다:
 
 ```python
-# 이 코드는 모델 정의 섹션(## 2. 파이프라인 구성) 다음에 한 번만 실행한다
-import pickle
-
-# PCA 모델 로드 (Notebook 02 step1-8에서 저장)
-with open(f'{MODELS_DIR}/pca_model.pkl', 'rb') as f:
-    pca_bundle = pickle.load(f)
-pca_scaler = pca_bundle['scaler']
-pca_model = pca_bundle['pca']
-
-# PCA 축소 임베딩으로 전역 IF 학습
-# embeddings_pca.npy는 이미 PCA 변환된 50~150차원
-all_embeddings_pca = np.load(f'{LABELS_DIR}/embeddings_pca.npy')
-
-global_iso = IsolationForest(n_estimators=200, contamination=0.15, random_state=42)
-global_iso.fit(all_embeddings_pca)
-
-with open(f'{MODELS_DIR}/isolation_forest.pkl', 'wb') as f:
-    pickle.dump(global_iso, f)
-print(f'전역 IsolationForest 학습 완료: {all_embeddings_pca.shape} (PCA 축소 임베딩)')
+def compute_hmm_bic(model, X, lengths) -> tuple[float, float]:
+    """HMM BIC 계산. 낮을수록 좋다."""
+    ll         = model.score(X, lengths)
+    n_samples  = len(X)
+    n_obs      = 5   # NUM_ROLES
+    nc         = model.n_components
+    n_params   = (nc - 1) + nc * (nc - 1) + nc * (n_obs - 1)
+    bic        = -2 * ll + n_params * np.log(n_samples)
+    return bic, ll
 ```
 
-`compute_anomaly_score`도 PCA 변환 후 IF를 적용한다:
+탐색 범위를 [3, 4, 5, 6, 7]로 확장하고 `n_iter=200`으로 설정한다:
 
 ```python
-def compute_anomaly_score(image_paths: list[str]) -> dict:
-    if len(image_paths) < 2:
-        return {'slide_scores': [0.5] * len(image_paths),
-                'pred_roles': [2] * len(image_paths),
-                'deck_structural_score': 0.5,
-                'if_scores': [0.5] * len(image_paths),
-                'hmm_score': 0.5}
+results = []
+for nc in [3, 4, 5, 6, 7]:
+    model = hmm.CategoricalHMM(n_components=nc, n_iter=200, random_state=42, verbose=False)
+    model.fit(X_train, lengths_train)
+    bic, ll = compute_hmm_bic(model, X_val, lengths_val)
+    results.append({'n_components': nc, 'bic': bic, 'val_score': ll / len(X_val), 'model': model})
+    print(f'n_components={nc} | BIC={bic:.1f} | val ll/step={ll/len(X_val):.4f}')
 
-    embeddings_np, pred_roles = extract_embeddings_batch(image_paths, cnn_model, transform)
-
-    # PCA 변환 후 전역 IF 적용 (1536차원 직접 입력 금지)
-    emb_scaled = pca_scaler.transform(embeddings_np)
-    emb_pca = pca_model.transform(emb_scaled)
-    raw = global_iso.decision_function(emb_pca)
-    s_min, s_max = raw.min(), raw.max()
-    if_scores = 1.0 - (raw - s_min) / (s_max - s_min + 1e-8)
-
-    # HMM 구조 점수
-    seq = pred_roles.reshape(-1, 1)
-    log_likelihood = hmm_model.score(seq) / len(seq)
-    z = (thresholds['mean'] - log_likelihood) / (thresholds['std'] + 1e-8)
-    hmm_score = float(np.clip(z / 3.0, 0, 1))
-
-    return {
-        'slide_scores': (0.7 * if_scores + 0.3 * hmm_score).tolist(),
-        'pred_roles': pred_roles.tolist(),
-        'deck_structural_score': hmm_score,
-        'if_scores': if_scores.tolist(),
-        'hmm_score': hmm_score,
-    }
+best_result = min(results, key=lambda r: r['bic'])
+best_model  = best_result['model']
+best_n      = best_result['n_components']
 ```
 
-`pca_model.pkl` 또는 `embeddings_pca.npy`가 없으면 Notebook 02 step1-8을 먼저 실행해야 한다.
+BIC 커브를 시각화하고 `models/hmm_bic_curve.png`로 저장한다.
 
----
+### 3. 임계값 결정 — 정규성 검정 후 방법 선택
 
-### 2. Ablation Study — IF / HMM / 결합 비교
-
-AUC 계산 셀 다음에 각 컴포넌트를 단독으로 평가하는 셀을 추가한다.
+`all_scores` 계산 코드(`best_model.score(x) / len(seq)` 루프)를 먼저 실행한 후 아래를 실행한다:
 
 ```python
-# --- Ablation: IF만 ---
-# all_labels는 슬라이드 단위(flatten)이므로 if_scores도 동일하게 슬라이드 단위로 flatten해야 한다
-# (덱 평균을 내면 all_labels 길이와 불일치해 roc_auc_score가 에러를 낸다)
-if_scores_flat = np.array([s for r in all_results for s in r['if_scores']])
-auc_if_only = roc_auc_score(all_labels, if_scores_flat)
+from scipy import stats
 
-# --- Ablation: HMM만 ---
-# HMM 점수는 덱 단위이므로 슬라이드 수만큼 broadcast한 뒤 all_labels와 비교
-hmm_scores_flat = np.array([
-    r['hmm_score']
-    for r, (_, group) in zip(all_results, valid_groups)
-    for _ in range(len(group))
-])
-auc_hmm_only = roc_auc_score(all_labels, hmm_scores_flat)
+stat, p_value = stats.shapiro(all_scores[:5000])
+is_normal     = p_value > 0.05
+print(f'Shapiro-Wilk: stat={stat:.4f}, p={p_value:.4f}')
 
-print('\n=== Ablation Study ===')
-print(f'IF만:                  AUC = {auc_if_only:.4f}')
-print(f'HMM만:                 AUC = {auc_hmm_only:.4f}')
-print(f'IF (0.7) + HMM (0.3): AUC = {auc_new:.4f}')
-print(f'IF baseline:           AUC = {auc_baseline:.4f}')
-```
+if is_normal:
+    threshold_method  = 'gaussian_3sigma'
+    threshold_primary = float(np.mean(all_scores) - 3 * np.std(all_scores))
+else:
+    threshold_method  = 'percentile'
+    threshold_primary = float(np.percentile(all_scores, 5))
 
----
-
-### 3. 점수 가중치 그리드 탐색
-
-`0.7/0.3` 가중치가 최적인지 확인하기 위해 그리드 탐색을 수행한다.
-
-```python
-# IF 가중치 α를 0.0 ~ 1.0으로 탐색 (HMM 가중치 = 1 - α)
-alphas = np.linspace(0.0, 1.0, 21)  # 0.0, 0.05, ..., 1.0
-auc_by_alpha = []
-
-for alpha in alphas:
-    combined = []
-    for result in all_results:
-        # 슬라이드별 최종 점수
-        slide_scores = [alpha * s + (1 - alpha) * result['hmm_score']
-                        for s in result['if_scores']]
-        combined.extend(slide_scores)
-
-    combined = np.array(combined)
-    auc = roc_auc_score(all_labels, combined)
-    auc_by_alpha.append(auc)
-
-best_alpha = alphas[np.argmax(auc_by_alpha)]
-best_auc_alpha = max(auc_by_alpha)
-print(f'최적 IF 가중치: α={best_alpha:.2f} (AUC={best_auc_alpha:.4f})')
-
-# 가중치-AUC 커브
-plt.figure(figsize=(8, 4))
-plt.plot(alphas, auc_by_alpha, 'o-', color='steelblue')
-plt.axvline(best_alpha, color='red', linestyle='--', label=f'최적 α={best_alpha:.2f}')
-plt.axvline(0.7, color='gray', linestyle=':', label='기존 α=0.70')
-plt.xlabel('IF 가중치 (α)')
-plt.ylabel('AUC')
-plt.title('점수 가중치 그리드 탐색')
-plt.legend()
-plt.tight_layout()
-plt.savefig(f'{MODELS_DIR}/weight_grid_search.png', dpi=100)
-plt.show()
-```
-
-최적 가중치를 `final_results.json`에 저장한다:
-
-```python
-final_results['best_alpha'] = float(best_alpha)
-final_results['best_auc_with_optimal_alpha'] = float(best_auc_alpha)
-final_results['ablation'] = {
-    'if_only': float(auc_if_only),
-    'hmm_only': float(auc_hmm_only),
-    'combined_0.7_0.3': float(auc_new),
-    'combined_optimal': float(best_auc_alpha),
+thresholds = {
+    'method':            threshold_method,
+    'threshold_primary': threshold_primary,
+    'threshold_5pct':    float(np.percentile(all_scores, 5)),
+    'threshold_10pct':   float(np.percentile(all_scores, 10)),
+    'mean':              float(np.mean(all_scores)),
+    'std':               float(np.std(all_scores)),
+    'shapiro_p':         float(p_value),
+    'n_decks':           len(all_scores),
 }
 ```
 
----
+### 3-B. best_model 및 thresholds 저장
 
-### 4. 결함 유형별 AUC 분석
-
-SlideAudit에 결함 유형 컬럼(`defect_types` 또는 `typography`, `color`, `layout` 등)이 있으면 유형별 AUC를 계산한다.
+기존 노트북에 있는 모델 저장 코드가 개선된 `best_model`을 저장하는지 확인한다.
+없으면 아래를 추가한다:
 
 ```python
-# SlideAudit 컬럼 구조에 따라 수정 필요
-# 예시: slideaudit_df에 'typography', 'color', 'layout' 불리언 컬럼이 있다고 가정
+import pickle
 
-DEFECT_TYPES = ['typography', 'color', 'layout', 'content']
-available_types = [t for t in DEFECT_TYPES if t in slideaudit_df.columns]
+with open(f'{MODELS_DIR}/hmm_model.pkl', 'wb') as f:
+    pickle.dump(best_model, f)
+print(f'HMM 모델 저장: {MODELS_DIR}/hmm_model.pkl (n_components={best_n})')
 
-if available_types:
-    print('\n=== 결함 유형별 AUC ===')
-    type_aucs = {}
-    for defect_type in available_types:
-        # 해당 결함 유형 라벨 매핑
-        type_labels = []
-        type_scores = []
-        for result, (deck_id, group) in zip(all_results, valid_groups):
-            if defect_type in group.columns:
-                type_labels.extend(group[defect_type].astype(int).tolist())
-                type_scores.extend(result['slide_scores'])
-
-        if len(set(type_labels)) < 2:
-            print(f'  {defect_type}: 이진 라벨 없음 (스킵)')
-            continue
-
-        auc = roc_auc_score(type_labels, type_scores)
-        type_aucs[defect_type] = auc
-        print(f'  {defect_type}: AUC = {auc:.4f}')
-
-    final_results['per_defect_auc'] = {k: float(v) for k, v in type_aucs.items()}
-else:
-    print('결함 유형 컬럼 없음 — slideaudit_df 구조를 확인하고 컬럼 이름을 수동으로 지정')
+with open(f'{MODELS_DIR}/hmm_thresholds.json', 'w') as f:
+    json.dump(thresholds, f, indent=2)
+print(f'임계값 저장: {MODELS_DIR}/hmm_thresholds.json')
 ```
 
-SlideAudit 데이터셋 구조를 실제로 확인한 후 `DEFECT_TYPES`와 컬럼 이름을 맞춰야 한다.
+`thresholds` dict는 `threshold_primary` 계산 후 저장한다.
+step4에서 `hmm_model.pkl`과 `hmm_thresholds.json` 두 파일 모두 참조한다.
 
----
+### 4. 길이 편향 검증
 
-### 5. 평가 루프 리팩터링 — 결과를 리스트로 수집
-
-현재 코드는 `all_scores`와 `all_labels`를 각각 `extend`한다.  
-Ablation과 유형별 분석을 모두 지원하려면 덱 단위 결과를 보존해야 한다.
-
-`## 4. SlideAudit로 AUC 측정` 셀을 아래처럼 교체한다:
+per-step 정규화가 길이 편향을 충분히 제거했는지 산점도로 확인한다:
 
 ```python
-all_results = []       # 덱별 anomaly score dict
-valid_groups = []      # 덱별 (deck_id, group) 튜플
-
-for deck_id, group in tqdm(slideaudit_df.groupby('deck_id'), desc='AUC 계산'):
-    if 'slide_idx' in group.columns:
-        group = group.sort_values('slide_idx')
-
-    image_paths = group['image_path'].tolist()
-    valid_pairs = [(p, row) for p, (_, row) in zip(image_paths, group.iterrows())
-                   if Path(p).exists()]
-    if len(valid_pairs) < 2:   # 1-슬라이드 덱 스킵
-        continue
-
-    valid_paths = [p for p, _ in valid_pairs]
-    valid_group = group[group['image_path'].isin(valid_paths)]
-
-    result = compute_anomaly_score(valid_paths)
-    all_results.append(result)
-    valid_groups.append((deck_id, valid_group))
-
-# 슬라이드 레벨로 flatten
-all_scores = np.array([s for r in all_results for s in r['slide_scores']])
-all_labels = np.array([
-    label
-    for _, group in valid_groups
-    for label in group['has_defect'].astype(int).tolist()
-])
-
-print(f'평가 슬라이드 수: {len(all_scores)}')
-print(f'이상 슬라이드 비율: {all_labels.mean():.2%}')
-auc_new = roc_auc_score(all_labels, all_scores)
-print(f'새 파이프라인 AUC: {auc_new:.4f}')
+lengths_arr = np.array([len(seq) for seq in seq_df['sequence'].tolist()])
+corr, p     = stats.pearsonr(lengths_arr, all_scores)
+print(f'길이-점수 피어슨 상관: r={corr:.3f}, p={p:.4f}')
+if abs(corr) > 0.3:
+    print('⚠ 길이 편향 존재. 스코어링 방식 재검토 필요.')
 ```
 
----
+`models/hmm_length_bias_check.png`로 저장한다.
 
-### 6. AUC 해석 가이드 — SlideAudit와 우리 모델의 태스크 미스매치
+### 5. 이상 시퀀스 샘플 출력
 
-SlideAudit의 라벨과 우리 파이프라인이 탐지하는 "이상"은 다른 개념이다.
-
-| | 우리 파이프라인 | SlideAudit |
-|---|---|---|
-| **탐지 대상** | 구조 이상(역할 시퀀스), 임베딩 outlier | 디자인 결함(폰트, 색상, 정렬) |
-| **단위** | 덱 전체 구조 + 슬라이드별 비주얼 | 슬라이드별 디자인 |
-| **기준** | Zenodo10K 정상 덱에서 학습 | 사람이 레이블한 디자인 오류 |
-
-AUC가 0.6~0.65라면 이것이 "모델이 나쁘다"는 의미가 아닐 수 있다. 두 태스크의 overlap이 제한적이기 때문이다. 결과를 해석할 때 아래를 추가로 출력한다:
+임계값 이하 덱의 시퀀스 패턴을 출력해 모델이 의미 있는 이상을 탐지하는지 확인한다:
 
 ```python
-# AUC 결과 해석 출력
-print('\n=== AUC 해석 가이드 ===')
-print(f'새 파이프라인 AUC: {auc_new:.4f}')
-print()
-if auc_new >= 0.75:
-    print('✓ 우수: 우리 파이프라인이 SlideAudit 디자인 결함과 높은 상관을 보임')
-elif auc_new >= 0.65:
-    print('△ 보통: 일부 디자인 결함은 구조/비주얼 이상과 겹침')
-else:
-    print('▲ 참고: SlideAudit는 디자인 결함을 레이블함. 우리 모델은 구조/비주얼 이상을 탐지함.')
-    print('  → 태스크 불일치 가능성. IF 점수와 HMM 점수를 분리해 각각 해석할 것.')
-    print(f'  IF만 AUC: {auc_if_only:.4f} / HMM만 AUC: {auc_hmm_only:.4f}')
-    print('  어느 컴포넌트가 SlideAudit와 더 aligned되는지 확인한다.')
+score_series = pd.Series(all_scores, index=seq_df['deck_id'])
+anomaly_ids  = score_series[score_series < thresholds['threshold_primary']].index.tolist()
+
+print(f'\n이상 탐지된 덱: {len(anomaly_ids)}개 (상위 10개)')
+for deck_id in anomaly_ids[:10]:
+    seq      = seq_df[seq_df['deck_id'] == deck_id].iloc[0]['sequence']
+    readable = ' → '.join([ROLE_NAMES[r] for r in seq])
+    print(f'  {deck_id} (score={score_series[deck_id]:.3f}): {readable}')
 ```
 
 ---
 
 ## Acceptance Criteria
 
+```bash
+python3 -c "
+import json, ast, re
+nb = json.load(open('notebooks/03_hmm_structure.ipynb'))
+src = '\n'.join(''.join(c['source']) for c in nb['cells'] if c['cell_type']=='code')
+ast.parse(re.sub(r'^[!%].*\$', '', src, flags=re.MULTILINE))
+print('OK: notebooks/03_hmm_structure.ipynb')
+"
+
+python3 -c "
+import json
+nb = json.load(open('notebooks/03_hmm_structure.ipynb'))
+src = '\n'.join(''.join(c['source']) for c in nb['cells'] if c['cell_type']=='code')
+assert 'labeled_with_preds.csv' in src, 'CNN pred sequence missing'
+assert 'compute_hmm_bic' in src,        'BIC function missing'
+assert '[3, 4, 5, 6, 7]' in src,        'n_components range not expanded'
+assert 'shapiro' in src,                'normality test missing'
+assert 'threshold_primary' in src,      'threshold selection missing'
+assert 'pearsonr' in src,               'length bias check missing'
+print('All checks passed')
+"
 ```
-- pca_model.pkl을 로드하고 compute_anomaly_score 내에서 PCA 변환 후 IF를 적용하는가?
-- compute_anomaly_score 내에 이미지-by-이미지 for 루프가 없는가?
-- compute_anomaly_score 내에 IsolationForest.fit() 호출이 없는가? (전역 모델 사용)
-- {MODELS_DIR}/isolation_forest.pkl이 생성되는가?
-- {MODELS_DIR}/weight_grid_search.png가 생성되는가?
-- final_results.json에 'best_alpha' 키가 있는가?
-- final_results.json에 'ablation' 키 아래 if_only, hmm_only, combined 세 값이 있는가?
-- Ablation IF 점수가 슬라이드 단위 flatten이고 all_labels와 길이가 일치하는가?
-- 평가 루프가 all_results 리스트를 수집하는 구조인가?
-- AUC 해석 출력이 있는가?
-```
+
+## 검증 절차
+
+1. 위 AC 커맨드를 실행한다.
+2. 아키텍처 체크리스트:
+   - `labeled_with_preds.csv`가 있으면 `pred_label`을 사용하고, 없으면 `weak_label`로 fallback하는가?
+   - `compute_hmm_bic`가 val 데이터로 계산하는가? (train 데이터 아님)
+   - `hmm_thresholds.json`에 `method` 키가 있는가?
+   - `sequences_cnn.csv`가 저장되는가?
+3. `phases/4-ml-pipeline/index.json`의 step 3을 업데이트한다:
+   - 성공 → `"status": "completed"`, `"summary": "NB03 HMM 개선: CNN pred 시퀀스 재학습, BIC 선택(n=[3..7]), 정규성 검정 기반 임계값 결정"`
+   - 수정 3회 시도 후에도 실패 → `"status": "error"`, `"error_message": "구체적 에러 내용"`
+   - 사용자 개입 필요 → `"status": "blocked"`, `"blocked_reason": "구체적 사유"` 후 즉시 중단
 
 ## 금지사항
 
-- `compute_anomaly_score`에 1536차원 원본 임베딩을 그대로 IF에 입력하지 마라. 반드시 `pca_scaler.transform` → `pca_model.transform` 순서로 변환 후 입력한다. 고차원 IF는 차원의 저주로 anomaly 판별이 사실상 불가능하다.
-- `compute_anomaly_score` 내에서 `IsolationForest`를 `fit`하지 마라. 반드시 전역 학습된 `global_iso`를 사용해야 한다. 덱 단위 fit은 샘플 수가 너무 적어 통계적으로 무의미하다.
-- Ablation IF 점수를 덱 단위 평균으로 계산하지 마라. `all_labels`는 슬라이드 단위이므로 `if_scores`도 슬라이드 단위로 flatten해야 `roc_auc_score`가 에러 없이 실행된다.
-- 그리드 탐색 범위를 100분할 이상으로 설정하지 마라. AUC 계산이 슬라이드 수만큼 반복되므로 21분할(0.05 간격)으로 충분하다.
-- `compute_anomaly_score` 함수를 클래스로 바꾸지 마라. 함수 형태를 유지해야 Notebook 05(백엔드 통합) 작성 시 그대로 `backend/app/pipeline/`에 이식할 수 있다.
-- SlideAudit 데이터가 없는 상태에서 AUC 코드를 실행하지 마라. 먼저 `## 1. SlideAudit 데이터셋 로드` 섹션을 완료하고 `slideaudit_df`에 'deck_id', 'image_path', 'has_defect' 컬럼이 있는지 확인한다.
-- `baseline_scores` 계산을 재실행하지 않고 그리드 탐색과 함께 실행하지 마라. 베이스라인 임베딩 추출은 한 번만 실행하고 결과를 변수에 보존한다.
-- `all_results`를 직접 수정하지 마라. 추론 후 불변으로 유지해야 여러 분석(Ablation, 그리드 탐색, 유형별 AUC)에 재사용할 수 있다.
+- `weak_labels.csv`의 `weak_label`을 HMM 학습에 직접 사용하지 마라. 반드시 `labeled_with_preds.csv`의 `pred_label`을 우선 사용한다. 학습과 추론 분포 불일치 방지가 핵심이다.
+- BIC를 train 데이터로 계산하지 마라. 과적합 패널티를 반영하려면 val 데이터로 계산해야 한다.
+- `n_iter`를 50 이하로 줄이지 마라. CategoricalHMM은 EM 알고리즘 수렴에 iteration이 많이 필요하다.
+- `best_model`을 순회 중 업데이트하지 마라. `min(results, key=lambda r: r['bic'])` 패턴을 유지한다.
+- 이상 탐지된 덱 목록을 파일로 저장하지 마라. 이 단계는 사람 검증용 출력이다. 실제 이상 판정은 step4에서 한다.

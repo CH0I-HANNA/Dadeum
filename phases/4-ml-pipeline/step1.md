@@ -1,359 +1,231 @@
-# Step 1: Notebook 02 — CNN 역할 분류기 개선
-
-## 개요
-
-`notebooks/02_cnn_role_classifier.ipynb`는 EfficientNet-B3로 슬라이드 역할을 분류한다.  
-현재 코드는 동작하지만 A100 GPU를 충분히 활용하지 못하고, 약한 라벨(Weak Label)의 노이즈를 고려하지 않아 과적합 위험이 있다.
-
-개선 포인트:
-1. **Mixed Precision 미사용**: A100에서 FP16 활성화 시 학습 속도 1.5~2× 향상
-2. **데이터 증강 부적절**: 슬라이드는 가로/세로 방향이 고정돼 있어 `RandomHorizontalFlip`이 오히려 방해
-3. **Label Smoothing 없음**: 약한 라벨은 10~20% 오류율이 있으므로 hard-target CrossEntropy는 노이즈에 취약
-4. **Early Stopping 없음**: 검증 정확도가 plateau에 도달해도 계속 학습해 시간 낭비
-5. **임베딩 시각화 없음**: 역할별 클러스터링을 눈으로 확인할 방법이 없음
-
----
+# Step 1: data-prep
 
 ## 읽어야 할 파일
 
-- `notebooks/02_cnn_role_classifier.ipynb` — 전체 흐름
-- `notebooks/01_data_preparation.ipynb` — weak_labels.csv 컬럼 구조 확인
+먼저 아래 파일들을 읽고 프로젝트 구조와 설계 의도를 파악하라:
+
+- `/Users/choehanna/Documents/Dadeum/CLAUDE.md`
+- `/Users/choehanna/Documents/Dadeum/docs/ARCHITECTURE.md`
+- `/Users/choehanna/Documents/Dadeum/notebooks/01_data_preparation.ipynb` — step0 완료 후 상태
+- `/Users/choehanna/Documents/Dadeum/phases/4-ml-pipeline/step0.md` — step0에서 변경된 내용 파악
+
+이전 step(data-source)에서 NB01이 stanford_slide 기반 이미지 파이프라인으로 교체됐다.
+
+**이 step의 전제 조건**: PPTX 파일이 실제로 제공되는 데이터셋을 사용할 때만 적용한다.
+stanford_slide(이미지 전용)로 실행한 경우 이 step은 skip한다.
+NB01 첫 셀에서 아래를 확인하고 결정한다:
+
+```python
+# PPTX 데이터 여부 확인
+has_pptx = len(list(Path(PPTX_DIR).glob('*.pptx'))) > 0
+print(f'PPTX 데이터 존재: {has_pptx}')
+# has_pptx == False 이면 이 step은 skip
+```
+
+PPTX가 없으면 `phases/4-ml-pipeline/index.json`의 step 1을 즉시
+`"status": "completed"`, `"summary": "PPTX 데이터 없음 — stanford_slide 이미지 파이프라인에서 skip"` 으로 업데이트하고 종료한다.
 
 ---
 
-## 개선 작업
+## 작업
 
-### 1. Mixed Precision Training (torch.amp)
+`notebooks/01_data_preparation.ipynb`에 아래 개선 사항을 추가한다.
 
-`## 4. 학습` 섹션의 학습 루프를 Mixed Precision으로 교체한다.
+### 1. `get_slide_features` — shape_type 분기 추가
+
+현재 코드는 `shape_type == 13` (그림)만 이미지로 인식한다.
+차트(3), 테이블(19), SmartArt(24)를 시각 영역으로 함께 집계하도록 수정한다.
 
 ```python
-from torch.amp import autocast, GradScaler
+from pptx.enum.shapes import MSO_SHAPE_TYPE
 
-scaler = GradScaler('cuda')
+VISUAL_SHAPE_TYPES = {3, 13, 19, 24}  # Chart, Picture, Table, SmartArt
 
-for epoch in range(EPOCHS):
-    model.train()
-    train_loss = 0.0
-    t0 = time.time()
+def get_slide_features(slide, slide_width, slide_height):
+    total_area = slide_width * slide_height
+    word_count = 0
+    visual_area = 0
+    has_table = False
+    has_chart = False
 
-    for imgs, labels in train_loader:
-        imgs, labels = imgs.to(device), labels.to(device)
-        optimizer.zero_grad()
+    for shape in slide.shapes:
+        if shape.has_text_frame:
+            for para in shape.text_frame.paragraphs:
+                for run in para.runs:
+                    word_count += len(run.text.split())
+        if shape.shape_type in VISUAL_SHAPE_TYPES:
+            visual_area += shape.width * shape.height
+            if shape.shape_type == 3:
+                has_chart = True
+            if shape.shape_type == 19:
+                has_table = True
 
-        with autocast('cuda'):           # FP16 자동 전환
-            logits = model(imgs)
-            loss = criterion(logits, labels)
-
-        scaler.scale(loss).backward()
-        scaler.unscale_(optimizer)
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)  # 그래디언트 클리핑
-        scaler.step(optimizer)
-        scaler.update()
-
-        train_loss += loss.item()
-
-    # ... (검증 루프는 변경 없음, torch.no_grad() 내부는 autocast 불필요)
+    visual_ratio = min(visual_area / (total_area + 1e-8), 1.0)
+    return word_count, visual_ratio, has_table, has_chart
 ```
 
-`GradScaler`와 `clip_grad_norm_`은 한 셋으로 항상 같이 쓴다. 클리핑 없이 FP16을 쓰면 gradient explosion 위험이 있다.
-
----
-
-### 2. Normalize 값 — ImageNet 통계 대신 슬라이드 데이터 실측값 사용
-
-현재 `Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])`는 ImageNet 통계다.  
-슬라이드는 흰 배경·텍스트 위주라 자연 이미지와 픽셀 분포가 크게 다르다. 잘못된 정규화는 훈련 초기에 gradient를 불안정하게 만든다.
-
-데이터 로더 정의 전에 아래 셀로 실제 통계를 계산한다:
+`assign_weak_label`도 시그니처를 변경하고 테이블/차트가 있으면 `ROLE_VISUAL`로 즉시 분류한다:
 
 ```python
-from tqdm import tqdm as tqdm_plain
-
-# 서브샘플 5000장으로 계산 (전체 계산 시 너무 오래 걸림)
-sample_df = train_df.sample(min(5000, len(train_df)), random_state=42)
-raw_transform = transforms.Compose([
-    transforms.Resize((IMG_SIZE, IMG_SIZE)),
-    transforms.ToTensor(),
-])
-
-mean_sum = torch.zeros(3)
-sq_sum = torch.zeros(3)
-n = 0
-
-for _, row in tqdm_plain(sample_df.iterrows(), total=len(sample_df), desc='정규화 통계 계산'):
-    if not Path(row['image_path']).exists():
-        continue
-    img = Image.open(row['image_path']).convert('RGB')
-    t = raw_transform(img)           # (3, 224, 224)
-    mean_sum += t.mean(dim=(1, 2))
-    sq_sum += (t ** 2).mean(dim=(1, 2))
-    n += 1
-
-SLIDE_MEAN = (mean_sum / n).tolist()
-SLIDE_STD = ((sq_sum / n - torch.tensor(SLIDE_MEAN) ** 2).sqrt()).tolist()
-print(f'슬라이드 mean: {[round(v, 4) for v in SLIDE_MEAN]}')
-print(f'슬라이드 std:  {[round(v, 4) for v in SLIDE_STD]}')
+def assign_weak_label(
+    slide_idx: int, total_slides: int,
+    word_count: int, visual_ratio: float,
+    has_table: bool, has_chart: bool,
+) -> int:
+    position_ratio = slide_idx / max(total_slides - 1, 1)
+    if slide_idx == 0:
+        return ROLE_COVER
+    if slide_idx == total_slides - 1:
+        return ROLE_CLOSING
+    if has_table or has_chart or visual_ratio > 0.40:
+        return ROLE_VISUAL
+    if word_count < 15 and 0.05 < position_ratio < 0.85:
+        return ROLE_SECTION
+    return ROLE_BODY
 ```
 
-이후 `train_transform`과 `val_transform`의 `Normalize`에 `SLIDE_MEAN`, `SLIDE_STD`를 사용한다:
+`records.append(...)` 호출부를 새 반환값에 맞게 수정한다. `image_ratio` 키를 `visual_ratio`로 변경한다:
 
 ```python
-transforms.Normalize(mean=SLIDE_MEAN, std=SLIDE_STD)
+word_count, visual_ratio, has_table, has_chart = get_slide_features(slide, W, H)
+label = assign_weak_label(i, n, word_count, visual_ratio, has_table, has_chart)
+
+records.append({
+    'deck_id':        deck_id,
+    'slide_idx':      i,
+    'total_slides':   n,
+    'position_ratio': round(i / max(n - 1, 1), 4),
+    'word_count':     word_count,
+    'visual_ratio':   round(visual_ratio, 4),   # image_ratio → visual_ratio
+    'has_table':      has_table,
+    'has_chart':      has_chart,
+    'weak_label':     label,
+    'role_name':      ROLE_NAMES[label],
+    'image_path':     slide_png,
+})
 ```
 
-Notebook 04의 `transform`도 동일한 값으로 교체해야 한다. 두 노트북에서 다른 정규화를 쓰면 임베딩 분포가 달라진다.
+### 2. `_letterbox` 함수 적용
 
----
+step0(data-source)에서 `_letterbox`가 이미 정의됐다. 재정의하지 말고 호출만 한다.
+step0을 거치지 않고 이 step을 단독 실행하는 경우에만 아래 정의를 추가한다.
 
-### 3. 데이터 증강 수정 — 슬라이드 특성 반영
-
-슬라이드는 항상 가로가 긴 직사각형이고 좌우 대칭 콘텐츠가 없다. `RandomHorizontalFlip`을 제거하고 슬라이드에 적합한 증강으로 교체한다.
+`pptx_to_thumbnails` 내 저장 루프를 수정한다:
 
 ```python
-train_transform = transforms.Compose([
-    transforms.Resize((IMG_SIZE, IMG_SIZE)),
-    # RandomHorizontalFlip 제거: 슬라이드는 좌우 반전 시 텍스트가 뒤집혀 의미 없음
-    transforms.RandomAffine(
-        degrees=0,
-        translate=(0.03, 0.03),   # 미세 이동 (레이아웃 견고성)
-        scale=(0.95, 1.05),       # 미세 스케일 변화
-    ),
-    transforms.ColorJitter(brightness=0.15, contrast=0.15, saturation=0.1),
-    transforms.RandomGrayscale(p=0.05),   # 흑백 슬라이드 대비
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                         std=[0.229, 0.224, 0.225]),
-])
+img = Image.open(png_path).convert('RGB')
+img = _letterbox(img, size)   # ← 기존 img.resize 대체
 ```
 
----
+### 3. LibreOffice 에러 상세 저장
 
-### 4. Backbone Freeze — 2단계 Fine-tuning
-
-현재 전체 파라미터(backbone + head)를 lr=1e-4로 처음부터 학습한다.  
-EfficientNet-B3의 1200만 파라미터 전체가 noisy weak label을 기억하려 하면 과적합이 빠르게 발생한다.
-
-2단계 전략: **1단계 → head만 warm-up → 2단계 → backbone 전체 fine-tune (낮은 lr)**
+`pptx_to_thumbnails` 함수가 빈 리스트를 반환할 때 원인을 알 수 없다.
+`subprocess.run` 실패 시 `RuntimeError`를 발생시켜 변환 루프 `except` 블록에서 기록한다:
 
 ```python
-# 1단계: backbone 동결, head만 학습 (5 epoch)
-for param in model.backbone.parameters():
-    param.requires_grad = False
-
-optimizer_stage1 = AdamW(model.classifier.parameters(), lr=3e-4, weight_decay=1e-2)
-scheduler_stage1 = CosineAnnealingLR(optimizer_stage1, T_max=5, eta_min=1e-5)
-
-print('=== Stage 1: Head warm-up (backbone frozen) ===')
-for epoch in range(5):
-    # 학습 루프 (위와 동일, optimizer_stage1 사용)
+def pptx_to_thumbnails(pptx_path: str, output_dir: str, size: int = 224):
     ...
-    scheduler_stage1.step()
-
-# 2단계: backbone 해제, 차등 학습률 적용
-for param in model.backbone.parameters():
-    param.requires_grad = True
-
-optimizer_stage2 = AdamW([
-    {'params': model.backbone.parameters(), 'lr': 1e-5},  # backbone: 낮은 lr
-    {'params': model.classifier.parameters(), 'lr': 1e-4}, # head: 높은 lr
-], weight_decay=1e-2)
-scheduler_stage2 = CosineAnnealingLR(optimizer_stage2, T_max=15, eta_min=1e-6)
-
-print('=== Stage 2: Full fine-tune (differential lr) ===')
-for epoch in range(15):
-    # 학습 루프 (optimizer_stage2 사용)
+    if result.returncode != 0:
+        raise RuntimeError(f'LibreOffice 실패 (rc={result.returncode}): {result.stderr[:300]}')
+    if not png_files:
+        raise RuntimeError('변환 성공이나 PNG 파일 없음')
     ...
-    scheduler_stage2.step()
 ```
 
-Stage 1 5 epoch + Stage 2 15 epoch = 총 20 epoch으로 기존 epoch 수를 유지한다.  
-Early stopping은 Stage 2에만 적용한다 (Stage 1은 head warm-up이므로 전 과정 실행).
-
----
-
-### 5. Label Smoothing 적용
-
-약한 라벨(Weak Label)은 규칙 기반으로 생성되어 실제 오류율이 15~20%다.  
-`nn.CrossEntropyLoss`에 `label_smoothing=0.15`를 추가해 모델이 과도하게 확신하는 것을 방지한다.
+변환 루프 `except` 블록:
 
 ```python
-# 기존
-criterion = nn.CrossEntropyLoss(weight=class_weights)
-
-# 개선
-criterion = nn.CrossEntropyLoss(weight=class_weights, label_smoothing=0.15)
+except Exception as e:
+    convert_errors.append({'deck_id': deck_id, 'error': str(e)})
 ```
 
-`label_smoothing` 값 가이드:
-- `0.0`: 노이즈 없는 완벽한 라벨일 때
-- `0.1`: 약간의 어노테이션 오류 (사람이 작성한 경우)
-- `0.15~0.2`: 규칙 기반 약한 라벨처럼 오류율이 높을 때
-
----
-
-### 6. Early Stopping 추가
-
-20 epoch 모두 학습하지 않고, 검증 정확도가 `patience=5` epoch 동안 개선되지 않으면 중단한다.
+변환 완료 후 에러 리스트를 JSON으로 저장한다:
 
 ```python
-# 학습 루프 시작 전에 추가
-patience = 5
-no_improve_count = 0
-
-# 학습 루프 내 최고 모델 저장 블록 뒤에 추가
-    if val_acc > best_val_acc:
-        best_val_acc = val_acc
-        no_improve_count = 0
-        torch.save({...}, f'{MODELS_DIR}/role_classifier_best.pt')
-        print(f'  → 최고 모델 저장 (val_acc={val_acc:.4f})')
-    else:
-        no_improve_count += 1
-        if no_improve_count >= patience:
-            print(f'\nEarly stopping at epoch {epoch+1} (no improvement for {patience} epochs)')
-            break
+with open(f'{LABELS_DIR}/convert_errors.json', 'w') as f:
+    json.dump(convert_errors, f, indent=2, ensure_ascii=False)
 ```
 
----
+### 4. PPTX 유효성 검사
 
-### 7. 클래스 가중치 — class_weights.json에서 로드
-
-Step 0에서 생성한 `class_weights.json`을 사용해 Notebook 01/02 간 일관성을 유지한다.
+다운로드 루프 완료 후 별도 루프에서 손상된 PPTX를 제거한다:
 
 ```python
-# 기존: df에서 직접 계산
-class_counts = train_df['weak_label'].value_counts().sort_index().values
-class_weights = torch.tensor(1.0 / class_counts, dtype=torch.float32).to(device)
+def is_valid_pptx(path: str) -> bool:
+    try:
+        prs = Presentation(path)
+        return len(prs.slides) > 0
+    except Exception:
+        return False
 
-# 개선: Notebook 01이 저장한 파일에서 로드
-import json
-with open(f'{LABELS_DIR}/class_weights.json') as f:
-    raw_weights = json.load(f)
+corrupt = []
+for fname in list(downloaded):
+    if not is_valid_pptx(fname):
+        corrupt.append(fname)
+        downloaded.remove(fname)
+        os.remove(fname)
 
-# key가 문자열로 저장됐으므로 정수로 변환 후 정렬
-class_weights_list = [raw_weights[str(i)] for i in range(NUM_CLASSES)]
-class_weights = torch.tensor(class_weights_list, dtype=torch.float32).to(device)
-class_weights = class_weights / class_weights.sum() * NUM_CLASSES  # 정규화
+with open(f'{LABELS_DIR}/corrupt_files.json', 'w') as f:
+    json.dump(corrupt, f)
 ```
 
-`class_weights.json`이 없으면 (Step 0 미실행 시) train_df에서 계산하는 fallback을 추가한다:
+### 5. 클래스 가중치 저장
+
+라벨 CSV 저장 전에 실행한다. numpy int64 키를 str로 변환해야 `json.dump`가 TypeError 없이 직렬화된다:
 
 ```python
-json_path = Path(f'{LABELS_DIR}/class_weights.json')
-if json_path.exists():
-    with open(json_path) as f:
-        raw = json.load(f)
-    class_weights_list = [raw[str(i)] for i in range(NUM_CLASSES)]
-    class_weights = torch.tensor(class_weights_list, dtype=torch.float32).to(device)
-else:
-    class_counts = train_df['weak_label'].value_counts().sort_index().values
-    class_weights = torch.tensor(1.0 / class_counts, dtype=torch.float32).to(device)
-
-class_weights = class_weights / class_weights.sum() * NUM_CLASSES
+class_counts = df['weak_label'].value_counts().sort_index()
+weights = {str(int(k)): float(1.0 / v) for k, v in class_counts.items()}
+with open(f'{LABELS_DIR}/class_weights.json', 'w') as f:
+    json.dump(weights, f, indent=2)
 ```
 
----
+### 6. HMM 시퀀스 — 최소 길이 조정
 
-### 8. PCA 차원 축소 — Isolation Forest 입력 준비
-
-EfficientNet-B3 임베딩은 1536차원이다. **Isolation Forest는 고차원에서 차원의 저주**로 인해 모든 포인트 간 거리가 수렴해 outlier 판별이 불가능해진다. 50~100차원 이하로 줄여야 한다.
-
-임베딩 추출 완료 후 (`embeddings_np` 생성 직후) PCA를 적용한다:
-
-```python
-from sklearn.decomposition import PCA
-from sklearn.preprocessing import StandardScaler
-
-# 1. 스케일 정규화 (PCA 전 필수)
-scaler = StandardScaler()
-embeddings_scaled = scaler.fit_transform(embeddings_np)   # (N, 1536)
-
-# 2. PCA — 분산 95% 보존 (보통 100~150차원으로 수렴)
-pca = PCA(n_components=0.95, svd_solver='full', random_state=42)
-embeddings_pca = pca.fit_transform(embeddings_scaled)     # (N, k)
-
-print(f'PCA 결과: {embeddings_np.shape[1]}차원 → {embeddings_pca.shape[1]}차원')
-print(f'보존된 분산: {pca.explained_variance_ratio_.sum():.3%}')
-
-# 3. PCA 모델 저장 (Notebook 04에서 재사용)
-import pickle
-with open(f'{MODELS_DIR}/pca_model.pkl', 'wb') as f:
-    pickle.dump({'scaler': scaler, 'pca': pca}, f)
-
-# 4. 축소된 임베딩 저장
-np.save(f'{LABELS_DIR}/embeddings_pca.npy', embeddings_pca)
-print(f'PCA 임베딩 저장 완료: {embeddings_pca.shape}')
-```
-
-`embeddings.npy` (1536차원)는 UMAP 시각화용으로 유지하고, `embeddings_pca.npy`는 Isolation Forest 학습용으로 별도 저장한다.
-
----
-
-### 9. 임베딩 시각화 — UMAP
-
-`## 5. CNN 임베딩으로 역할별 Feature 추출` 섹션 마지막에 UMAP 시각화 셀을 추가한다.  
-임베딩이 역할별로 잘 클러스터링됐는지 눈으로 확인한다.
-
-```python
-# UMAP은 Colab 기본 환경에 없으므로 반드시 설치 셀을 주석 해제하고 실행한다
-!pip install -q umap-learn
-
-import umap
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
-
-# 시각화용 서브샘플 (전체 N이 크면 UMAP이 느림)
-SAMPLE_N = 3000
-sample_idx = np.random.choice(len(embeddings_np), min(SAMPLE_N, len(embeddings_np)), replace=False)
-sample_emb = embeddings_np[sample_idx]
-sample_labels = labels_np[sample_idx]
-
-reducer = umap.UMAP(n_components=2, random_state=42, n_neighbors=30, min_dist=0.1)
-emb_2d = reducer.fit_transform(sample_emb)
-
-colors = plt.cm.tab10(np.linspace(0, 1, NUM_CLASSES))
-fig, ax = plt.subplots(figsize=(10, 8))
-for role_id, color in enumerate(colors):
-    mask = sample_labels == role_id
-    ax.scatter(emb_2d[mask, 0], emb_2d[mask, 1],
-               c=[color], label=ROLE_NAMES[role_id],
-               alpha=0.6, s=10)
-
-ax.legend(markerscale=3, loc='upper right')
-ax.set_title('EfficientNet-B3 임베딩 UMAP (역할별 색상)')
-ax.axis('off')
-plt.tight_layout()
-plt.savefig(f'{MODELS_DIR}/embedding_umap.png', dpi=120)
-plt.show()
-print('UMAP 시각화 저장 완료')
-```
-
-역할 클러스터가 뭉쳐 있으면 분류기가 잘 학습된 것이다.  
-표지(0)와 마무리(4) 클러스터가 겹치면 Notebook 01의 약한 라벨을 다시 점검한다.
+1-슬라이드 덱은 HMM 학습에 불필요하므로 `len(seq) >= 3` → `len(seq) >= 2`로 변경한다.
 
 ---
 
 ## Acceptance Criteria
 
+```bash
+python3 -c "
+import json, ast, re
+nb = json.load(open('notebooks/01_data_preparation.ipynb'))
+src = '\n'.join(''.join(c['source']) for c in nb['cells'] if c['cell_type']=='code')
+ast.parse(re.sub(r'^[!%].*\$', '', src, flags=re.MULTILINE))
+print('OK: notebooks/01_data_preparation.ipynb')
+"
+
+python3 -c "
+import json
+nb = json.load(open('notebooks/01_data_preparation.ipynb'))
+src = '\n'.join(''.join(c['source']) for c in nb['cells'] if c['cell_type']=='code')
+assert 'VISUAL_SHAPE_TYPES' in src, 'shape_type expansion missing'
+assert '_letterbox' in src, '_letterbox missing'
+assert 'visual_ratio' in src, 'visual_ratio column missing'
+assert 'convert_errors' in src, 'error logging missing'
+assert 'class_weights.json' in src, 'class_weights save missing'
+print('All checks passed')
+"
 ```
-- SLIDE_MEAN, SLIDE_STD 변수가 정의되고 Normalize에 적용됐는가?
-- 학습 루프에 GradScaler와 autocast('cuda') 쌍이 있는가?
-- clip_grad_norm_(max_norm=1.0)이 scaler.unscale_ 이후에 위치하는가?
-- Stage 1(backbone frozen)과 Stage 2(differential lr)로 구분되어 있는가?
-- train_transform에 RandomHorizontalFlip이 없는가?
-- CrossEntropyLoss에 label_smoothing=0.15가 설정됐는가?
-- patience 변수가 선언되고 early stopping 로직이 있는가?
-- {MODELS_DIR}/pca_model.pkl과 {LABELS_DIR}/embeddings_pca.npy가 생성되는가?
-- {MODELS_DIR}/embedding_umap.png가 생성되는가?
-```
+
+## 검증 절차
+
+1. 위 AC 커맨드를 실행한다.
+2. 아키텍처 체크리스트:
+   - `get_slide_features`가 `slide.shapes` 이외의 외부 의존성을 추가하지 않았는가?
+   - `weak_labels.csv` 컬럼에 `visual_ratio`가 있고 `image_ratio`가 없는가?
+   - `_letterbox`가 `pptx_to_thumbnails` 밖에 독립 함수로 정의됐는가?
+   - 노트북 셀이 위에서 아래로 순서대로 실행 가능한가?
+3. `phases/4-ml-pipeline/index.json`의 step 1을 업데이트한다:
+   - 성공 → `"status": "completed"`, `"summary": "NB01 PPTX 피처 개선: shape_type 확장, letterbox, 에러 저장, class_weights.json 생성"`
+   - 수정 3회 시도 후에도 실패 → `"status": "error"`, `"error_message": "구체적 에러 내용"`
+   - 사용자 개입 필요 → `"status": "blocked"`, `"blocked_reason": "구체적 사유"` 후 즉시 중단
 
 ## 금지사항
 
-- `Normalize`에 ImageNet 기본값([0.485, 0.456, 0.406])을 그대로 쓰지 마라. 반드시 슬라이드 데이터에서 계산한 `SLIDE_MEAN`, `SLIDE_STD`를 사용한다.
-- Isolation Forest에 `embeddings.npy` (1536차원)를 직접 입력하지 마라. 반드시 PCA를 거친 `embeddings_pca.npy`를 사용한다. 고차원 IF는 차원의 저주로 anomaly 판별이 불가능하다.
-- Stage 1을 생략하고 처음부터 전체 fine-tuning하지 마라. weak label의 노이즈가 backbone에 과적합된다.
-- `autocast` 블록을 검증 루프에도 적용하지 마라. `torch.no_grad()`만으로 충분하다.
-- `label_smoothing` 값을 0.3 이상으로 설정하지 마라. 너무 높으면 모델이 아무것도 배우지 못한다.
-- UMAP을 학습 루프 내에서 호출하지 마라. 임베딩 추출이 완료된 후 한 번만 실행한다.
-- `BATCH_SIZE`를 512 이상으로 올리지 마라. A100 40GB에서 EfficientNet-B3는 256 정도가 안전한 상한이다.
-- `EarlyStopping`을 별도 클래스로 추상화하지 마라. 루프 내 5줄 이내의 인라인 로직으로 충분하다.
+- `get_slide_features`에서 OpenCV, pytesseract 등 외부 의존성을 추가하지 마라. 이 함수는 Colab 기본 환경에서 실행돼야 한다.
+- `assign_weak_label`의 반환 타입을 변경하지 마라. `int` (ROLE_* 상수)를 그대로 반환한다.
+- 다운로드 루프 순회 중 `downloaded` 리스트를 직접 수정하지 마라. 별도 루프에서 `corrupt`를 제거한다.
+- `class_weights.json` 저장 시 `json.dump`에 numpy int64 타입을 직접 넣지 마라. 반드시 `str(int(k))`, `float(v)` 변환 후 저장한다.

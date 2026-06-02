@@ -1,261 +1,314 @@
-# Step 0: Notebook 01 — 데이터 준비 개선
-
-## 개요
-
-`notebooks/01_data_preparation.ipynb`는 ML 파이프라인의 시작점이다.  
-현재 코드는 동작하지만 아래 4가지 문제가 있어 데이터 품질과 재현성이 떨어진다.
-
-1. **약한 라벨 품질 저하**: `get_slide_features`가 이미지/텍스트만 보고 표/차트/SmartArt를 구분하지 못함
-2. **에러 처리 부실**: LibreOffice 변환 실패가 조용히 무시되어 누락 데이터 파악 불가
-3. **데이터 검증 없음**: 다운로드 후 PPTX가 손상됐는지 확인하지 않음
-4. **클래스 불균형 미보고**: 라벨 저장 전 분포를 확인하지 않아 Notebook 02에서 뒤늦게 발견
-
----
+# Step 0: data-source
 
 ## 읽어야 할 파일
 
-- `notebooks/01_data_preparation.ipynb` — 전체 흐름 파악
-- `CLAUDE.md` — `SlideFeatureExtractor` 위치 규칙 확인
+먼저 아래 파일들을 읽고 프로젝트 구조와 설계 의도를 파악하라:
+
+- `/Users/choehanna/Documents/Dadeum/CLAUDE.md`
+- `/Users/choehanna/Documents/Dadeum/docs/ARCHITECTURE.md`
+- `/Users/choehanna/Documents/Dadeum/notebooks/01_data_preparation.ipynb` — 교체할 셀 파악
 
 ---
 
-## 개선 작업
+## 작업
 
-### 1. `get_slide_features` — shape_type 분기 추가
+`notebooks/01_data_preparation.ipynb`의 데이터 소스를 Zenodo10K에서 `jinaai/stanford_slide`로 교체한다.
 
-현재 코드는 `shape_type == 13` (그림) 하나만 이미지로 인식한다.  
-아래처럼 차트(MSO_SHAPE_TYPE.CHART=3), 테이블(19), SmartArt(24)를 시각 영역으로 함께 집계한다.
+변경 범위:
+- 데이터 로드: Zenodo10K → jinaai/stanford_slide, TARGET 5000 → 10000
+- 이미지 추출: stanford_slide가 이미지로 제공되면 LibreOffice 변환 단계 생략
+- 약한 라벨: python-pptx 없이 `position_ratio`만으로 단순화
+- CSV 출력 포맷: Notebook 02~04와의 호환성 유지 (컬럼명 그대로)
+
+### 1. 패키지 설치 셀 수정
+
+`## 1. 패키지 설치` 셀을 아래로 교체한다.
+stanford_slide는 이미지로 제공될 가능성이 높으므로 `python-pptx`와 `libreoffice`는 조건부 주석으로만 남긴다.
 
 ```python
-from pptx.enum.shapes import MSO_SHAPE_TYPE
+!pip install -q datasets pillow tqdm pandas
 
-VISUAL_SHAPE_TYPES = {3, 13, 19, 24}  # Chart, Picture, Table, SmartArt
+# PPTX 파일이 제공되는 경우에만 아래 셀을 실행
+# !pip install -q python-pptx
+# !apt-get install -q libreoffice
 
-def get_slide_features(slide, slide_width, slide_height):
-    """슬라이드에서 라벨링에 필요한 특징 추출"""
-    total_area = slide_width * slide_height
-    word_count = 0
-    visual_area = 0
-    has_table = False
-    has_chart = False
-
-    for shape in slide.shapes:
-        if shape.has_text_frame:
-            for para in shape.text_frame.paragraphs:
-                for run in para.runs:
-                    word_count += len(run.text.split())
-
-        if shape.shape_type in VISUAL_SHAPE_TYPES:
-            visual_area += shape.width * shape.height
-            if shape.shape_type == 3:
-                has_chart = True
-            if shape.shape_type == 19:
-                has_table = True
-
-    visual_ratio = min(visual_area / (total_area + 1e-8), 1.0)
-    return word_count, visual_ratio, has_table, has_chart
+print('설치 완료')
 ```
 
-`assign_weak_label`도 반환값에 맞게 시그니처를 바꾸고, 테이블/차트가 있으면 `ROLE_VISUAL`로 바로 분류한다:
+### 2. 데이터셋 구조 탐색 셀 추가 (NEW)
+
+`## 2. Zenodo10K PPTX 다운로드` 섹션 앞에 삽입한다.
+이 셀을 먼저 실행해 컬럼 이름을 확인한 뒤, 이후 셀에서 필드 이름을 맞춰야 한다.
 
 ```python
-def assign_weak_label(
-    slide_idx: int,
-    total_slides: int,
-    word_count: int,
-    visual_ratio: float,
-    has_table: bool,
-    has_chart: bool,
-) -> int:
-    position_ratio = slide_idx / max(total_slides - 1, 1)
+from datasets import load_dataset
 
-    if slide_idx == 0:
-        return ROLE_COVER
-    if slide_idx == total_slides - 1:
-        return ROLE_CLOSING
-    if has_table or has_chart or visual_ratio > 0.40:
-        return ROLE_VISUAL
-    if word_count < 15 and 0.05 < position_ratio < 0.85:
-        return ROLE_SECTION
-    return ROLE_BODY
+print('jinaai/stanford_slide 데이터셋 구조 탐색 중...')
+ds_explore = load_dataset('jinaai/stanford_slide', split='train', streaming=True)
+
+first_items = []
+for item in ds_explore:
+    first_items.append(item)
+    if len(first_items) >= 3:
+        break
+
+print(f'\n컬럼 목록: {list(first_items[0].keys())}')
+print('\n각 컬럼 타입 및 샘플 값:')
+for key, val in first_items[0].items():
+    print(f'  {key}: {type(val).__name__} = {repr(val)[:120]}')
+
+print('\n--- 덱 구조 파악용: 첫 3개 항목 비교 ---')
+CANDIDATE_DECK_FIELDS = ['deck_id', 'presentation_id', 'pptx_id', 'source', 'url', 'id']
+CANDIDATE_IDX_FIELDS  = ['slide_index', 'slide_idx', 'page_no', 'page', 'index', 'position']
+
+for i, item in enumerate(first_items):
+    print(f'\n항목 {i}:')
+    for field in CANDIDATE_DECK_FIELDS + CANDIDATE_IDX_FIELDS:
+        if field in item:
+            print(f'  {field}: {repr(item[field])[:80]}')
 ```
 
-`records.append(...)` 호출부도 새 반환값에 맞게 수정한다. `image_ratio` 키도 `visual_ratio`로 변경한다:
+탐색 결과를 확인한 뒤 아래 변수를 수정하는 셀을 삽입한다:
 
 ```python
-word_count, visual_ratio, has_table, has_chart = get_slide_features(slide, W, H)
-label = assign_weak_label(i, n, word_count, visual_ratio, has_table, has_chart)
+# ← 위 탐색 결과를 보고 실제 필드 이름으로 수정
+DECK_ID_FIELD   = 'deck_id'      # 덱(프레젠테이션) 식별자 필드
+SLIDE_IDX_FIELD = 'slide_index'  # 덱 내 슬라이드 순서 필드 (없으면 None)
+IMAGE_FIELD     = 'image'        # 이미지 필드 (PIL.Image 또는 bytes)
 
-records.append({
-    'deck_id': deck_id,
-    'slide_idx': i,
-    'total_slides': n,
-    'position_ratio': i / max(n - 1, 1),
-    'word_count': word_count,
-    'visual_ratio': round(visual_ratio, 4),   # ← image_ratio 에서 이름 변경
-    'has_table': has_table,
-    'has_chart': has_chart,
-    'weak_label': label,
-    'role_name': ROLE_NAMES[label],
-    'image_path': slide_png,
-})
+print(f'DECK_ID_FIELD   = {DECK_ID_FIELD}')
+print(f'SLIDE_IDX_FIELD = {SLIDE_IDX_FIELD}')
+print(f'IMAGE_FIELD     = {IMAGE_FIELD}')
 ```
 
-Notebook 02의 `SlideRoleDataset`이 `image_ratio` 컬럼을 읽는 부분이 있으면 반드시 `visual_ratio`로 함께 변경한다.
+### 3. 데이터 로드 셀 교체
 
----
+기존 `Zenodo10K 메타데이터 로딩` 셀과 `PPTX 다운로드` 셀을 아래 하나의 셀로 교체한다.
 
-### 2. PPTX 유효성 검사 — 다운로드 직후 실행
-
-다운로드 루프 내에서 저장 직후 `Presentation(fname)`을 열어 손상 여부를 확인한다.  
-손상된 파일은 삭제하고 `corrupt` 리스트에 기록한다.
+세션 재시작 시 재개 전략: 스트리밍 데이터셋은 재시작 시 처음부터 다시 읽어야 하므로
+`samples`를 Google Drive에 pickle로 캐싱한다.
+`SLIDES_DIR`의 파일 존재 여부가 이미지 저장 루프의 체크포인트 역할을 한다.
 
 ```python
-from pptx import Presentation
+from datasets import load_dataset
+from pathlib import Path
+from PIL import Image
+import io, json, pickle
+from tqdm import tqdm
 
-def is_valid_pptx(path: str) -> bool:
-    try:
-        prs = Presentation(path)
-        return len(prs.slides) > 0
-    except Exception:
-        return False
+TARGET = 10000   # 기존 5000 → 10000
 
-# 다운로드 루프 마지막에 추가
-corrupt = []
-for fname in list(downloaded):
-    if not is_valid_pptx(fname):
-        corrupt.append(fname)
-        downloaded.remove(fname)
-        os.remove(fname)
+# 체크포인트 1: samples 캐시 (Drive에 저장 — 스트리밍 재로딩 방지)
+samples_cache = Path(f'{LABELS_DIR}/samples_cache.pkl')
 
-print(f'손상된 PPTX 제거: {len(corrupt)}개')
-print(f'유효한 PPTX: {len(downloaded)}개')
+if samples_cache.exists():
+    with open(samples_cache, 'rb') as f:
+        samples = pickle.load(f)
+    print(f'samples 캐시 로드 완료: {len(samples)}개 (스트리밍 재로딩 건너뜀)')
+else:
+    print(f'jinaai/stanford_slide 스트리밍 로딩 중... (목표: {TARGET}장)')
+    ds = load_dataset('jinaai/stanford_slide', split='train', streaming=True)
+    samples = []
+    for item in tqdm(ds, total=TARGET, desc='샘플 수집'):
+        samples.append(item)
+        if len(samples) >= TARGET:
+            break
+    with open(samples_cache, 'wb') as f:
+        pickle.dump(samples, f)
+    print(f'수집 완료: {len(samples)}개 → {samples_cache} 저장')
 
-with open(f'{LABELS_DIR}/corrupt_files.json', 'w') as f:
-    json.dump(corrupt, f)
+print(f'첫 항목 키: {list(samples[0].keys())}')
 ```
 
----
+### 4. 썸네일 추출 셀 교체
 
-### 3. LibreOffice 변환 실패 — 상세 에러 저장
+기존 `pptx_to_thumbnails` 함수와 변환 루프를 아래로 교체한다.
 
-`pptx_to_thumbnails` 함수가 빈 리스트를 반환할 때 이유를 알 수 없다.  
-`subprocess.run` 결과의 `returncode`와 `stderr`를 기록한다.
+체크포인트 2: 이미지 저장 루프에서 `Path(out_path).exists()`를 확인해 이미 저장된 파일을 건너뛴다.
+세션이 끊겨도 `SLIDES_DIR` 안의 파일이 남아 있으므로 셀 재실행 시 자동 재개된다.
 
 ```python
-def pptx_to_thumbnails(pptx_path: str, output_dir: str, size: int = 224):
-    Path(output_dir).mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory() as tmpdir:
-        result = subprocess.run(
-            ['libreoffice', '--headless', '--norestore',
-             '--convert-to', 'png', '--outdir', tmpdir, pptx_path],
-            capture_output=True, text=True, timeout=120
-        )
-        if result.returncode != 0:
-            # 빈 리스트 대신 에러 정보를 포함한 예외를 발생시킴
-            raise RuntimeError(f'LibreOffice 실패 (rc={result.returncode}): {result.stderr[:300]}')
-
-        png_files = sorted(Path(tmpdir).glob('*.png'))
-        if not png_files:
-            raise RuntimeError('변환 성공이나 PNG 파일 없음')
-
-        saved = []
-        for i, png_path in enumerate(png_files):
-            img = Image.open(png_path).convert('RGB')
-            img = _letterbox(img, size)          # ← 직접 resize 금지
-            out_path = f'{output_dir}/slide_{i:03d}.png'
-            img.save(out_path, 'PNG', optimize=True)
-            saved.append(out_path)
-        return saved
-
+IMG_SIZE = 224
 
 def _letterbox(img: Image.Image, size: int = 224) -> Image.Image:
-    """
-    슬라이드 원본 비율(16:9)을 유지하면서 size×size 캔버스에 중앙 배치.
-    직접 resize하면 가로가 세로보다 긴 슬라이드가 세로로 찌그러짐.
-    흰색 패딩으로 여백을 채운다.
-    """
+    """비율 유지 후 흰색 패딩으로 size×size 캔버스 채움"""
     w, h = img.size
     scale = size / max(w, h)
     new_w, new_h = int(w * scale), int(h * scale)
     img = img.resize((new_w, new_h), Image.LANCZOS)
     canvas = Image.new('RGB', (size, size), (255, 255, 255))
-    offset_x = (size - new_w) // 2
-    offset_y = (size - new_h) // 2
-    canvas.paste(img, (offset_x, offset_y))
+    canvas.paste(img, ((size - new_w) // 2, (size - new_h) // 2))
     return canvas
+
+def extract_image(item: dict) -> Image.Image | None:
+    raw = item.get(IMAGE_FIELD)
+    if raw is None:
+        return None
+    if isinstance(raw, bytes):
+        return Image.open(io.BytesIO(raw)).convert('RGB')
+    if hasattr(raw, 'convert'):
+        return raw.convert('RGB')
+    return None
+
+def get_deck_id(item: dict, fallback_idx: int) -> str:
+    if DECK_ID_FIELD and DECK_ID_FIELD in item:
+        return str(item[DECK_ID_FIELD])
+    url = item.get('url') or item.get('source') or ''
+    if url:
+        import hashlib
+        return 'deck_' + hashlib.md5(url.encode()).hexdigest()[:8]
+    return f'deck_{fallback_idx:05d}'
+
+def get_slide_idx(item: dict) -> int | None:
+    if SLIDE_IDX_FIELD and SLIDE_IDX_FIELD in item:
+        return int(item[SLIDE_IDX_FIELD])
+    return None
+
+all_slide_paths = {}
+save_errors = []
+
+for i, item in enumerate(tqdm(samples, desc='이미지 저장')):
+    deck_id  = get_deck_id(item, i)
+    slide_idx = get_slide_idx(item)
+    out_dir  = Path(f'{SLIDES_DIR}/{deck_id}')
+    out_dir.mkdir(parents=True, exist_ok=True)
+    if slide_idx is None:
+        slide_idx = len(list(out_dir.glob('*.png')))
+    out_path = str(out_dir / f'slide_{slide_idx:03d}.png')
+    if Path(out_path).exists():
+        all_slide_paths.setdefault(deck_id, []).append((slide_idx, out_path))
+        continue
+    img = extract_image(item)
+    if img is None:
+        save_errors.append({'idx': i, 'deck_id': deck_id, 'reason': 'image_field_missing'})
+        continue
+    _letterbox(img, IMG_SIZE).save(out_path, 'PNG', optimize=True)
+    all_slide_paths.setdefault(deck_id, []).append((slide_idx, out_path))
+
+total_slides = sum(len(v) for v in all_slide_paths.values())
+print(f'저장 완료: {len(all_slide_paths)}개 덱, {total_slides}장 슬라이드')
+print(f'에러: {len(save_errors)}건')
+
+with open(f'{LABELS_DIR}/save_errors.json', 'w') as f:
+    json.dump(save_errors, f, indent=2)
+
+# 체크포인트 갱신 (samples_cache와 별개로 진행 현황 기록)
+checkpoint_path = Path(f'{LABELS_DIR}/stanford_checkpoint.json')
+with open(checkpoint_path, 'w') as f:
+    json.dump({'processed': total_slides, 'decks': len(all_slide_paths)}, f)
 ```
 
-변환 루프의 `except` 블록도 에러 내용을 저장한다:
+### 5. 약한 라벨 생성 셀 교체
+
+`## 4. 약한 라벨(Weak Label) 자동 생성` 섹션 전체를 아래로 교체한다.
+python-pptx 없이 위치 정보만으로 라벨을 부여한다.
 
 ```python
-except Exception as e:
-    convert_errors.append({'deck_id': deck_id, 'error': str(e)})
+ROLE_COVER   = 0
+ROLE_SECTION = 1   # 미사용
+ROLE_BODY    = 2
+ROLE_VISUAL  = 3   # 미사용
+ROLE_CLOSING = 4
+ROLE_NAMES   = ['표지', '섹션헤더', '본문', '도표/시각자료', '마무리']
+
+def assign_weak_label_image(slide_idx: int, total_slides: int) -> int:
+    if slide_idx == 0:
+        return ROLE_COVER
+    if slide_idx == total_slides - 1:
+        return ROLE_CLOSING
+    return ROLE_BODY
+
+records = []
+for deck_id, slides in tqdm(all_slide_paths.items(), desc='약한 라벨 생성'):
+    slides_sorted = sorted(slides, key=lambda x: x[0])
+    n = len(slides_sorted)
+    for rank, (slide_idx, img_path) in enumerate(slides_sorted):
+        label = assign_weak_label_image(rank, n)
+        records.append({
+            'deck_id':        deck_id,
+            'slide_idx':      rank,
+            'total_slides':   n,
+            'position_ratio': round(rank / max(n - 1, 1), 4),
+            'word_count':     0,
+            'visual_ratio':   0.0,
+            'has_table':      False,
+            'has_chart':      False,
+            'weak_label':     label,
+            'role_name':      ROLE_NAMES[label],
+            'image_path':     img_path,
+        })
+
+df = pd.DataFrame(records)
+print(f'총 슬라이드: {len(df)}장')
+print(df['role_name'].value_counts())
+print('\n⚠ 클래스 1(섹션헤더), 3(도표)은 미사용 — Notebook 02 class_weights 주의')
 ```
 
-변환 완료 후 에러 리스트를 JSON으로 저장한다:
-```python
-with open(f'{LABELS_DIR}/convert_errors.json', 'w') as f:
-    json.dump(convert_errors, f, indent=2, ensure_ascii=False)
-print(f'변환 에러 상세: {LABELS_DIR}/convert_errors.json')
-```
-
----
-
-### 4. 라벨 저장 전 클래스 불균형 체크 및 경고
-
-`df.to_csv(...)` 호출 직전에 클래스 분포를 확인하고 비율이 10% 미만인 클래스에 경고를 출력한다.
+### 6. 클래스 가중치 저장
 
 ```python
 print('\n=== 클래스 분포 체크 ===')
-dist = df['role_name'].value_counts(normalize=True)
-for role, ratio in dist.items():
+for role, ratio in df['role_name'].value_counts(normalize=True).items():
     flag = ' ⚠ 소수 클래스' if ratio < 0.10 else ''
     print(f'  {role}: {ratio:.1%}{flag}')
 
-# 클래스 가중치 미리 계산해서 저장 (Notebook 02에서 바로 사용)
 class_counts = df['weak_label'].value_counts().sort_index()
-# numpy int64 키를 str로 변환해야 json.dump가 TypeError 없이 직렬화함
-weights = {str(int(k)): float(1.0 / v) for k, v in class_counts.items()}
+
+# 부재 클래스(1, 3)는 weight=0.0 — CrossEntropyLoss가 자동 무시
+weights = {str(i): float(1.0 / class_counts[i]) if i in class_counts.index else 0.0
+           for i in range(5)}
 with open(f'{LABELS_DIR}/class_weights.json', 'w') as f:
     json.dump(weights, f, indent=2)
-print('클래스 가중치 저장 완료')
-```
 
----
-
-### 5. HMM 시퀀스 — 짧은 덱 처리 개선
-
-현재 `len(seq) >= 3` 조건으로 필터링하지만 이유가 없다.  
-HMM은 최소 2개 관측이 필요하고, 1-슬라이드 덱은 구조 분석 의미가 없으므로 2 이상으로 변경한다:
-
-```python
-for deck_id, group in df.groupby('deck_id'):
-    group = group.sort_values('slide_idx')
-    seq = group['weak_label'].tolist()
-    if len(seq) < 2:   # 1-슬라이드 덱은 HMM 학습에 불필요
-        continue
-    sequences.append({'deck_id': deck_id, 'sequence': seq, 'length': len(seq)})
+df.to_csv(f'{LABELS_DIR}/weak_labels.csv', index=False)
+print(f'저장 완료: {LABELS_DIR}/weak_labels.csv')
 ```
 
 ---
 
 ## Acceptance Criteria
 
+```bash
+# NB01 코드 셀 Python 구문 검사
+python3 -c "
+import json, ast, re
+nb = json.load(open('notebooks/01_data_preparation.ipynb'))
+src = '\n'.join(''.join(c['source']) for c in nb['cells'] if c['cell_type']=='code')
+ast.parse(re.sub(r'^[!%].*\$', '', src, flags=re.MULTILINE))
+print('OK: notebooks/01_data_preparation.ipynb')
+"
+
+# 필수 변경 사항 확인
+python3 -c "
+import json
+nb = json.load(open('notebooks/01_data_preparation.ipynb'))
+src = '\n'.join(''.join(c['source']) for c in nb['cells'] if c['cell_type']=='code')
+assert 'jinaai/stanford_slide' in src, 'data source not changed'
+assert 'TARGET = 10000' in src, 'TARGET not updated'
+assert '_letterbox' in src, '_letterbox function missing'
+assert 'assign_weak_label_image' in src, 'weak label function missing'
+assert 'samples_cache' in src, 'checkpoint missing'
+print('All checks passed')
+"
 ```
-# Colab 셀 실행 기준
-- get_slide_features 반환값이 (word_count, visual_ratio, has_table, has_chart) 4개인가?
-- assign_weak_label 인자가 6개(slide_idx, total_slides, word_count, visual_ratio, has_table, has_chart)인가?
-- 다운로드 후 corrupt_files.json이 생성되는가?
-- 변환 에러 발생 시 convert_errors.json에 deck_id + error 문자열이 기록되는가?
-- labels/class_weights.json이 생성되는가?
-- weak_labels.csv의 컬럼 이름이 image_ratio → visual_ratio로 바뀌었는가?
-```
+
+## 검증 절차
+
+1. 위 AC 커맨드를 실행한다.
+2. 아키텍처 체크리스트:
+   - Google Drive 경로(`BASE_DIR = '/content/drive/MyDrive/dadeum_ml'`)가 유지됐는가?
+   - `weak_labels.csv`에 `word_count`, `visual_ratio`, `has_table`, `has_chart` 컬럼이 존재하는가?
+   - `class_weights.json`에 키 `"0"~"4"` 5개가 모두 존재하는가?
+   - 노트북 셀이 위에서 아래로 순서대로 실행 가능한가?
+3. `phases/4-ml-pipeline/index.json`의 step 0을 업데이트한다:
+   - 성공 → `"status": "completed"`, `"summary": "NB01 데이터 소스를 stanford_slide로 교체, TARGET=10000, letterbox/checkpoint 추가"`
+   - 수정 3회 시도 후에도 실패 → `"status": "error"`, `"error_message": "구체적 에러 내용"`
+   - 사용자 개입 필요 → `"status": "blocked"`, `"blocked_reason": "구체적 사유"` 후 즉시 중단
 
 ## 금지사항
 
-- `get_slide_features`에서 python-pptx `slide.shapes` 이외의 외부 의존성(OpenCV, pytesseract 등)을 추가하지 마라. 이 함수는 Colab 기본 환경에서 실행돼야 한다.
-- `assign_weak_label`의 반환 타입을 변경하지 마라. `int` (ROLE_* 상수)를 그대로 반환한다.
-- 다운로드 루프에서 `downloaded` 리스트를 순회 중 직접 수정하지 마라. 별도의 후처리 루프에서 `corrupt`를 제거하라.
-- `_letterbox`를 `pptx_to_thumbnails` 함수 본문 안으로 인라인하지 마라. 독립 함수로 유지해야 Notebook 02에서 val_transform에도 동일 padding 로직을 적용할 수 있다.
-- Notebook 02의 `SlideRoleDataset`이 `image_ratio` 컬럼 이름을 사용하고 있으면 반드시 함께 수정해야 한다. 이 step에서 양쪽을 모두 변경하거나, Notebook 02 step1에서 처리한다.
+- 탐색 셀 결과를 확인하기 전에 이후 셀을 실행하지 마라. DECK_ID_FIELD, IMAGE_FIELD가 틀리면 모든 슬라이드가 단일 덱으로 그룹화되거나 이미지가 None으로 처리된다.
+- `class_weights.json`에서 부재 클래스를 키에서 제거하지 마라. Notebook 02의 로드 코드가 `raw[str(i)] for i in range(5)` 형태로 5개 키를 모두 참조하므로 KeyError가 발생한다.
+- `weak_labels.csv`에서 `word_count`, `visual_ratio`, `has_table`, `has_chart` 컬럼을 빼지 마라. Notebook 02의 `SlideRoleDataset`이 이 컬럼들을 참조할 수 있다.
+- `assign_weak_label_image`를 픽셀 분석으로 확장하지 마라. 이 step의 범위를 벗어난다.
+- Notebook 02~04를 수정하지 마라. CSV 포맷 호환성으로 기존 노트북이 그대로 작동해야 한다.
