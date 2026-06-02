@@ -9,6 +9,7 @@
 - `/home/user/Dadeum/frontend/src/components/slides/SlideGrid.tsx`
 - `/home/user/Dadeum/frontend/src/components/slides/SlidePreview.tsx`
 - `/home/user/Dadeum/frontend/src/components/report/DetailPanel.tsx`
+- `/home/user/Dadeum/frontend/src/components/report/RootCauseList.tsx`
 - `/home/user/Dadeum/frontend/src/components/report/RecommendationList.tsx`
 - `/home/user/Dadeum/frontend/src/types/api.ts`
 
@@ -24,16 +25,35 @@
 
 ## 작업
 
-### 1. `frontend/src/components/report/DetailPanel.tsx` — 색상값 컬러 스와치 표시
+### 1. `frontend/src/components/report/RootCauseList.tsx` — 색상값 컬러 스와치 표시
 
-RootCause의 `current_value` 또는 `reference_value`에 `RGB(` 패턴이 포함되어 있으면:
+현재 `RootCauseList.tsx`는 `cause.expected_value`와 `cause.actual_value`를 텍스트로 그대로 렌더링한다:
 
-- 텍스트 대신 인라인 컬러 스와치(원형 또는 사각형 div)를 표시한다.
-- RGB 문자열을 파싱하는 헬퍼 함수: `parseRgb(val: string): string | null` — `"RGB(r,g,b)"` → CSS color 문자열 `"rgb(r,g,b)"` 반환, 패턴 불일치 시 `null` 반환.
-- 스와치 스타일: `w-4 h-4 rounded-full inline-block border border-neutral-600`, 스와치 옆에 HEX 값도 표시.
-- HEX 변환 헬퍼: `rgbToHex(r,g,b)` → `"#rrggbb"`.
+```tsx
+<p className="text-xs text-neutral-500 leading-relaxed">
+  기대: {cause.expected_value} → 실제: {cause.actual_value}
+</p>
+```
 
-TypeScript 타입 규칙: 헬퍼 함수는 컴포넌트 파일 상단에 정의하거나 `frontend/src/utils/color.ts` (신규)로 분리한다. 인라인 타입 정의 금지.
+백엔드 `explainer.py`의 `_color_label`이 `"RGB(0, 0, 0)"` 형식 문자열을 반환하므로 이 텍스트가 UI에 그대로 노출된다.
+
+수정: `expected_value` / `actual_value`에 `RGB(` 패턴이 포함되어 있으면 텍스트 대신 인라인 컬러 스와치를 렌더링한다.
+
+`frontend/src/utils/color.ts` (신규 파일)에 헬퍼 함수를 작성하라:
+
+```ts
+// "RGB(0, 0, 0)" → { css: "rgb(0,0,0)", hex: "#000000" } | null
+export function parseRgbString(val: string): { css: string; hex: string } | null { ... }
+```
+
+HEX 변환 포함. 패턴 불일치 시 `null` 반환.
+
+`RootCauseList.tsx`에서 값마다 `parseRgbString`을 호출해 non-null이면 스와치로, null이면 기존 텍스트로 렌더링:
+
+- 스와치: `<span style={{ background: css }} className="w-4 h-4 rounded-full inline-block border border-neutral-600 align-middle" />` + HEX 문자열 텍스트
+- 스와치와 HEX를 `flex items-center gap-1.5` 래퍼로 감싼다.
+
+TypeScript 규칙: 유틸 함수는 `frontend/src/utils/color.ts`로 분리. 컴포넌트 내 인라인 타입 정의 금지.
 
 ### 2. `frontend/src/components/report/RecommendationList.tsx` — 효과 없는 제안 숨김
 
@@ -94,7 +114,7 @@ cd /home/user/Dadeum/frontend && npm run lint && npm run build
 1. AC 커맨드를 실행한다.
 2. 아키텍처 체크리스트:
    - TypeScript 타입이 `frontend/src/types/` 또는 컴포넌트 상단 헬퍼에만 정의되어 있는가? (컴포넌트 내 인라인 타입 정의 금지)
-   - color 헬퍼 함수가 있다면 `frontend/src/utils/color.ts`에 분리되어 있는가?
+   - color 헬퍼 함수(`parseRgbString`)가 `frontend/src/utils/color.ts`에 분리되어 있는가?
    - CLAUDE.md CRITICAL 규칙 위반 없는가?
 3. `phases/2-bugfix-ux/index.json` step 1을 업데이트한다:
    - 성공 → `"status": "completed"`, `"completed_at": "<ISO 타임스탬프>"`, `"summary": "산출물 한 줄 요약"`
