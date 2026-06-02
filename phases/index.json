@@ -28,8 +28,9 @@
     },
     {
       "dir": "5-research-quality",
-      "status": "pending",
-      "description": "연구 품질 강화: 평가 재설계, CLIP weak label, baseline suite, sensitivity, 통계 검정"
+      "status": "completed",
+      "description": "연구 품질 강화: 평가 재설계, CLIP weak label, baseline suite, sensitivity, 통계 검정",
+      "completed_at": "2026-06-03T00:00:00+0900"
     }
   ]
 }

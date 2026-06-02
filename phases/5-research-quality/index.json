@@ -2,10 +2,35 @@
   "project": "다듬",
   "phase": "5-research-quality",
   "steps": [
-    { "step": 0, "name": "eval-realign", "status": "pending" },
-    { "step": 1, "name": "clip-weak-label", "status": "pending" },
-    { "step": 2, "name": "baseline-suite", "status": "pending" },
-    { "step": 3, "name": "sensitivity-analysis", "status": "pending" },
-    { "step": 4, "name": "stats-significance", "status": "pending" }
+    {
+      "step": 0,
+      "name": "eval-realign",
+      "status": "completed",
+      "summary": "NB05 생성: 합성 구조 이상 벤치마크 (shuffle_mild/severe, no_cover, no_closing, no_boundary, dup_section), HMM AUC 측정, SlideAudit 평가와 비교 (eval_comparison.json)"
+    },
+    {
+      "step": 1,
+      "name": "clip-weak-label",
+      "status": "completed",
+      "summary": "NB06 생성: CLIP ViT-B/32 zero-shot 역할 분류 (prompt ensemble 3개), 배치 추론 + pickle 캐시, weak_labels_clip.csv, CNN 재학습(role_classifier_clip_best.pt), label_quality_comparison.json"
+    },
+    {
+      "step": 2,
+      "name": "baseline-suite",
+      "status": "completed",
+      "summary": "NB07 생성: B0 random, B1 position-only, B2 CLIP+IF, B3 DINOv2+IF, B4 SBERT(skip), 합성 벤치마크 AUC 비교, baseline_results.json + baseline_comparison.png"
+    },
+    {
+      "step": 3,
+      "name": "sensitivity-analysis",
+      "status": "completed",
+      "summary": "NB08 생성: contamination sweep [0.05..0.30], PCA dim sweep [16..512], alpha overfit 검증(train/test split), sensitivity_results.json + sensitivity_analysis.png"
+    },
+    {
+      "step": 4,
+      "name": "stats-significance",
+      "status": "completed",
+      "summary": "NB09 생성: Bootstrap CI (n=1000, 95%), McNemar test (exact), 다중 seed std, 논문용 결과 테이블, stats_significance.json + auc_with_ci.png"
+    }
   ]
 }
