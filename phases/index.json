@@ -9,6 +9,10 @@
       "dir": "1-ux-improvements",
       "status": "error",
       "failed_at": "2026-06-02T13:07:02+0900"
+    },
+    {
+      "dir": "2-bugfix-ux",
+      "status": "pending"
     }
   ]
 }
