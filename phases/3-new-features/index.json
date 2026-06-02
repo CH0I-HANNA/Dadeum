@@ -31,7 +31,7 @@
       "name": "backend-fix-preview",
       "status": "completed",
       "started_at": "2026-06-02T17:18:21+0900",
-      "completed_at": "2026-06-02T17:30:00+0900",
+      "completed_at": "2026-06-02T17:19:51+0900",
       "summary": "POST /api/fix/{file_id} 및 GET /api/preview-fix/{file_id}/{slide_num} 엔드포인트 구현 — 이상 슬라이드 폰트/색상 수정 PPTX 반환 및 수정 미리보기 PNG 반환"
     },
     {
