@@ -1,4 +1,3 @@
-
 {
   "phases": [
     {
@@ -34,8 +33,9 @@
     },
     {
       "dir": "6-hmm-pipeline",
-      "status": "pending",
-      "description": "HMM+CNN 파이프라인 백엔드 통합: role_classifier_clip_best.pt + hmm_model.pkl 로드, 역할 시퀀스 예측 → HMM 이상 탐지, IF fallback 유지"
+      "status": "completed",
+      "description": "HMM+CNN 파이프라인 백엔드 통합: role_classifier_clip_best.pt + hmm_model.pkl 로드, 역할 시퀀스 예측 → HMM 이상 탐지, IF fallback 유지",
+      "completed_at": "2026-06-04T15:18:06+0900"
     }
   ]
 }
