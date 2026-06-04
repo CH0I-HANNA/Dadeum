@@ -21,8 +21,8 @@ function StatRow({
   highlight: boolean;
 }) {
   return (
-    <tr className={highlight ? "text-amber-400" : ""}>
-      <td className="text-xs text-neutral-500 py-1 pr-3 whitespace-nowrap">{label}</td>
+    <tr className={highlight ? "text-amber-400" : "text-neutral-200"}>
+      <td className="text-xs text-neutral-400 py-1 pr-3 whitespace-nowrap">{label}</td>
       <td className="text-sm text-center py-1 px-2">{a}</td>
       <td className="text-sm text-center py-1 px-2">{b}</td>
     </tr>
@@ -85,10 +85,10 @@ export default function ComparePanel({
           <thead>
             <tr>
               <th className="text-left" />
-              <th className="text-xs text-neutral-500 font-normal pb-1">
+              <th className="text-xs text-neutral-400 font-normal pb-1">
                 {indexA + 1}번
               </th>
-              <th className="text-xs text-neutral-500 font-normal pb-1">
+              <th className="text-xs text-neutral-400 font-normal pb-1">
                 {indexB + 1}번
               </th>
             </tr>
