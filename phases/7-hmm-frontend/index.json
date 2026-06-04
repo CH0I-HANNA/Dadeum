@@ -7,7 +7,8 @@
       "name": "structure-score-card",
       "status": "completed",
       "started_at": "2026-06-04T15:34:20+0900",
-      "summary": "StructureScoreCard 생성: hmm_anomaly_score 게이지 + role_sequence 흐름(12개 초과 시 truncate), 각각 null 독립 처리"
+      "summary": "StructureScoreCard 생성: hmm_anomaly_score 게이지 + role_sequence 흐름(12개 초과 시 truncate), 각각 null 독립 처리",
+      "completed_at": "2026-06-04T15:36:30+0900"
     },
     {
       "step": 1,
