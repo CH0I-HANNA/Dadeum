@@ -1,0 +1,9 @@
+{
+  "project": "다듬",
+  "phase": "8-ux-polish",
+  "steps": [
+    { "step": 0, "name": "upload-errors", "status": "pending" },
+    { "step": 1, "name": "result-states", "status": "pending" },
+    { "step": 2, "name": "download-thumbnail", "status": "pending" }
+  ]
+}
