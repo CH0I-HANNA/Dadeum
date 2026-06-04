@@ -15,7 +15,7 @@
       "name": "hmm-scorer",
       "status": "completed",
       "started_at": "2026-06-04T15:07:53+0900",
-      "completed_at": "2026-06-04T15:30:00+0900",
+      "completed_at": "2026-06-04T15:09:36+0900",
       "summary": "HMMScorer 구현: score_sequence(role_sequence) → 0~1, load() → None(모델 없음) or HMMScorer"
     },
     {
