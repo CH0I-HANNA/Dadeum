@@ -13,7 +13,10 @@
     {
       "step": 1,
       "name": "slide-role-badge",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-06-04T15:36:30+0900",
+      "summary": "SlideThumbnail에 slideRole 뱃지 추가, SlideGrid에 slideStats prop 추가",
+      "completed_at": "2026-06-04T16:00:00+0900"
     },
     {
       "step": 2,
