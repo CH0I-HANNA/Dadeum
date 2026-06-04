@@ -114,7 +114,7 @@ export default function ResultPage() {
         {/* 헤더 */}
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold text-white">분석 결과 <span className="text-xs text-amber-400">v2</span></h1>
+            <h1 className="text-2xl font-semibold text-white">분석 결과</h1>
             <p className="mt-1 text-sm text-neutral-400">
               슬라이드 {result.slide_count}장
               {result.slide_count < 3 && (
@@ -125,6 +125,13 @@ export default function ResultPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => navigate("/")}
+              className="shrink-0 rounded-md border border-neutral-700 text-neutral-300 text-sm px-4 py-2 hover:border-neutral-500 transition-colors duration-150"
+            >
+              새 파일 분석
+            </button>
             <button
               type="button"
               onClick={handleCopyLink}
@@ -177,10 +184,22 @@ export default function ResultPage() {
           <p className="text-sm text-amber-400">
             슬라이드 {result.slide_count}장 중{" "}
             <span className="font-medium">{result.outlier_slides.length}장</span>에서 디자인 이상 감지
+            {result.impact_score_after_fix > result.consistency_score.total && (
+              <span className="ml-2 text-neutral-400">
+                · 수정 시 <span className="text-white">{Math.round(result.impact_score_after_fix)}점</span> 예상
+              </span>
+            )}
           </p>
         )}
 
-        {/* 3패널 레이아웃 */}
+        {/* 0 outliers 상태 */}
+        {result.outlier_slides.length === 0 ? (
+          <div className="rounded-lg bg-[#111111] border border-neutral-800 p-8 text-center">
+            <p className="text-lg text-white mb-2">디자인이 일관성 있게 구성되어 있습니다</p>
+            <p className="text-sm text-neutral-400">이상 슬라이드가 감지되지 않았습니다.</p>
+          </div>
+        ) : (
+        /* 3패널 레이아웃 */
         <div className="flex gap-4 items-start">
 
           {/* 왼쪽: 슬라이드 목록 */}
@@ -268,6 +287,7 @@ export default function ResultPage() {
             )}
           </div>
         </div>
+        )}
       </div>
     </main>
   );
