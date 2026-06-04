@@ -41,7 +41,7 @@ export default function ConsistencyScoreCard({ score }: Props) {
   const level = score.total >= 70 ? "높음" : score.total >= 40 ? "보통" : "낮음";
 
   return (
-    <div className="rounded-lg bg-[#111111] border border-neutral-800 p-4">
+    <div className="rounded-lg bg-[#111111] border border-neutral-800 p-4 h-full">
       <div className="flex items-end gap-4 mb-4">
         <span className="text-5xl font-bold text-white tabular-nums">
           {Math.round(score.total)}

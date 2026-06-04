@@ -49,7 +49,7 @@ export default function StructureScoreCard({ roleSequence, hmmAnomalyScore }: Pr
           ];
 
   return (
-    <div className="rounded-lg bg-[#111111] border border-neutral-800 p-4 space-y-4">
+    <div className="rounded-lg bg-[#111111] border border-neutral-800 p-4 space-y-4 h-full">
       {anomalyDisplay != null && (
         <div>
           <div className="flex items-end gap-4 mb-1">

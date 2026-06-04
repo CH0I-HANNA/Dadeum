@@ -174,11 +174,13 @@ export default function ResultPage() {
         </div>
 
         {/* 점수 카드 */}
-        <ConsistencyScoreCard score={result.consistency_score} />
-        <StructureScoreCard
-          roleSequence={result.role_sequence}
-          hmmAnomalyScore={result.hmm_anomaly_score}
-        />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <ConsistencyScoreCard score={result.consistency_score} />
+          <StructureScoreCard
+            roleSequence={result.role_sequence}
+            hmmAnomalyScore={result.hmm_anomaly_score}
+          />
+        </div>
 
         {result.outlier_slides.length > 0 && (
           <p className="text-sm text-amber-400">
