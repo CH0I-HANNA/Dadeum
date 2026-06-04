@@ -109,8 +109,8 @@ export default function ResultPage() {
   const showCompare = compareMode && activeSlide !== null && compareSlide !== null;
 
   return (
-    <main className="min-h-screen bg-[#0a0a0a] px-4 py-6">
-      <div className="max-w-screen-xl mx-auto space-y-5">
+    <main className="h-screen overflow-hidden bg-[#0a0a0a] flex flex-col px-4 py-6">
+      <div className="max-w-screen-xl w-full mx-auto flex flex-col gap-5 min-h-0 flex-1 overflow-y-auto">
         {/* 헤더 */}
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -217,7 +217,7 @@ export default function ResultPage() {
                 }}
               />
             )}
-            <div className="overflow-y-auto max-h-[calc(100vh-260px)] pr-1">
+            <div className="overflow-y-auto max-h-[calc(100vh-320px)] pr-1">
               <SlideGrid
                 fileId={result.file_id}
                 slideCount={result.slide_count}
