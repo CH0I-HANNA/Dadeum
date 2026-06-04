@@ -24,7 +24,7 @@
       "status": "completed",
       "started_at": "2026-06-04T15:38:06+0900",
       "summary": "DetailPanel + ComparePanel에 slide_role 행 추가, null이면 미렌더링",
-      "completed_at": "2026-06-04T15:50:00+0900"
+      "completed_at": "2026-06-04T15:40:10+0900"
     },
     {
       "step": 3,
