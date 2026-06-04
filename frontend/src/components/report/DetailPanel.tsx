@@ -61,6 +61,14 @@ export default function DetailPanel({ selectedIndex, outlierSlides, slideStats, 
               슬라이드 통계
             </p>
             <div className="grid grid-cols-2 gap-y-2">
+              {stats.slide_role != null && (
+                <>
+                  <span className="text-xs text-neutral-500">역할</span>
+                  <span className="text-sm text-neutral-300">
+                    {["표지", "섹션헤더", "본문", "도표/시각자료", "마무리"][stats.slide_role]}
+                  </span>
+                </>
+              )}
               <span className="text-xs text-neutral-500">주요 폰트</span>
               <span className="text-sm text-neutral-300">{stats.dominant_font}</span>
               <span className="text-xs text-neutral-500">평균 폰트 크기</span>
@@ -96,6 +104,37 @@ export default function DetailPanel({ selectedIndex, outlierSlides, slideStats, 
             수정 제안
           </p>
           <RecommendationList recommendations={outlier.recommendations} />
+        </div>
+      )}
+      {stats && (
+        <div>
+          <p className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-3">
+            슬라이드 통계
+          </p>
+          <div className="grid grid-cols-2 gap-y-2">
+            {stats.slide_role != null && (
+              <>
+                <span className="text-xs text-neutral-500">역할</span>
+                <span className="text-sm text-neutral-300">
+                  {["표지", "섹션헤더", "본문", "도표/시각자료", "마무리"][stats.slide_role]}
+                </span>
+              </>
+            )}
+            <span className="text-xs text-neutral-500">주요 폰트</span>
+            <span className="text-sm text-neutral-300">{stats.dominant_font}</span>
+            <span className="text-xs text-neutral-500">평균 폰트 크기</span>
+            <span className="text-sm text-neutral-300">
+              {stats.font_size_mean > 0 ? `${stats.font_size_mean}pt` : "-"}
+            </span>
+            <span className="text-xs text-neutral-500">텍스트 영역</span>
+            <span className="text-sm text-neutral-300">
+              {(stats.text_area_ratio * 100).toFixed(0)}%
+            </span>
+            <span className="text-xs text-neutral-500">단어 수</span>
+            <span className="text-sm text-neutral-300">{stats.word_count}개</span>
+            <span className="text-xs text-neutral-500">요소 수</span>
+            <span className="text-sm text-neutral-300">{stats.element_count}개</span>
+          </div>
         </div>
       )}
       <div>
