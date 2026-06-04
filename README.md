@@ -52,13 +52,21 @@ PPTX 또는 PDF를 드래그 앤 드롭하거나 클릭하여 선택한다.
 
 각 이상 유형별 결과 화면:
 
-| 색상 이상 | 콘텐츠 이상 |
-|:--------:|:---------:|
-| ![색상 이상](docs/screenshots/02_score_cards_color.png) | ![콘텐츠 이상](docs/screenshots/02_score_cards_content.png) |
+**색상 이상**
 
-| 폰트 이상 | 레이아웃 이상 |
-|:--------:|:-----------:|
-| ![폰트 이상](docs/screenshots/02_score_cards_font.png) | ![레이아웃 이상](docs/screenshots/02_score_cards_layout.png) |
+![색상 이상](docs/screenshots/02_score_cards_color.png)
+
+**콘텐츠 이상**
+
+![콘텐츠 이상](docs/screenshots/02_score_cards_content.png)
+
+**폰트 이상**
+
+![폰트 이상](docs/screenshots/02_score_cards_font.png)
+
+**레이아웃 이상**
+
+![레이아웃 이상](docs/screenshots/02_score_cards_layout.png)
 
 ---
 
