@@ -14,7 +14,7 @@ from app.pipeline.parser import parse_file
 from app.pipeline.recommender import Recommender
 from app.pipeline.role_classifier import RoleClassifier
 from app.pipeline.scorer import compute_consistency_score
-from app.pipeline.slide_renderer import render_pptx_slides
+from app.pipeline.slide_renderer import render_slides
 
 _TIMEOUT_SECONDS = 180
 
@@ -41,11 +41,11 @@ def run_analysis(file_path: str | Path, file_id: str) -> AnalysisResult:
     role_sequence: list[int] | None = None
     hmm_anomaly_score: float | None = None
 
-    # PPTX 파일에만 CNN+HMM 파이프라인 적용
-    if Path(file_path).suffix.lower() == ".pptx":
+    # CNN+HMM 파이프라인 (PPTX + PDF 모두 적용)
+    if Path(file_path).suffix.lower() in (".pptx", ".pdf"):
         role_classifier = RoleClassifier.load()
         if role_classifier is not None:
-            images = render_pptx_slides(Path(file_path))
+            images = render_slides(Path(file_path))
             role_sequence = role_classifier.predict(images)
 
         hmm_scorer = HMMScorer.load()

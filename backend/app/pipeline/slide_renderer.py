@@ -10,6 +10,37 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 _CNN_SIZE = 224
 
 
+def render_slides(file_path: Path, size: int = _CNN_SIZE) -> list[Image.Image]:
+    """확장자를 보고 PPTX 또는 PDF 렌더러를 호출한다."""
+    suffix = Path(file_path).suffix.lower()
+    if suffix == ".pdf":
+        return render_pdf_slides(file_path, size)
+    return render_pptx_slides(file_path, size)
+
+
+def render_pdf_slides(file_path: Path, size: int = _CNN_SIZE) -> list[Image.Image]:
+    """PDF 파일의 각 페이지를 PIL Image (size×size RGB)로 렌더링한다.
+    pymupdf(fitz)를 사용하며 외부 의존성 없이 동작한다.
+    """
+    import fitz  # pymupdf
+
+    results: list[Image.Image] = []
+    try:
+        doc = fitz.open(str(file_path))
+        for page in doc:
+            try:
+                mat = fitz.Matrix(2.0, 2.0)  # 2x 해상도로 렌더링 후 리사이즈
+                pix = page.get_pixmap(matrix=mat)
+                img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                img = img.resize((size, size), Image.LANCZOS)
+            except Exception:
+                img = Image.new("RGB", (size, size), (255, 255, 255))
+            results.append(img)
+    except Exception:
+        pass
+    return results
+
+
 def render_pptx_slides(file_path: Path, size: int = _CNN_SIZE) -> list[Image.Image]:
     """PPTX 파일의 각 슬라이드를 PIL Image (size×size RGB)로 렌더링한다.
     렌더링 실패한 슬라이드는 흰색 이미지로 대체한다.
