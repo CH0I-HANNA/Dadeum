@@ -110,9 +110,9 @@ export default function ResultPage() {
 
   return (
     <main className="h-screen overflow-hidden bg-[#0a0a0a] flex flex-col px-4 py-6">
-      <div className="max-w-screen-xl w-full mx-auto flex flex-col gap-5 min-h-0 flex-1 overflow-y-auto">
+      <div className="max-w-screen-xl w-full mx-auto flex flex-col gap-5 flex-1 min-h-0">
         {/* 헤더 */}
-        <div className="flex items-start justify-between gap-4">
+        <div className="shrink-0 flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold text-white">분석 결과</h1>
             <p className="mt-1 text-sm text-neutral-400">
@@ -174,7 +174,7 @@ export default function ResultPage() {
         </div>
 
         {/* 점수 카드 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="shrink-0 grid grid-cols-1 lg:grid-cols-2 gap-4">
           <ConsistencyScoreCard score={result.consistency_score} />
           <StructureScoreCard
             roleSequence={result.role_sequence}
@@ -183,7 +183,7 @@ export default function ResultPage() {
         </div>
 
         {result.outlier_slides.length > 0 && (
-          <p className="text-sm text-amber-400">
+          <p className="shrink-0 text-sm text-amber-400">
             슬라이드 {result.slide_count}장 중{" "}
             <span className="font-medium">{result.outlier_slides.length}장</span>에서 디자인 이상 감지
             {result.impact_score_after_fix > result.consistency_score.total && (
@@ -201,23 +201,25 @@ export default function ResultPage() {
             <p className="text-sm text-neutral-400">이상 슬라이드가 감지되지 않았습니다.</p>
           </div>
         ) : (
-        /* 3패널 레이아웃 */
-        <div className="flex gap-4 items-start">
+        /* 3패널 레이아웃 — flex-1 min-h-0으로 남은 공간 차지 */
+        <div className="flex gap-4 flex-1 min-h-0">
 
-          {/* 왼쪽: 슬라이드 목록 */}
-          <div className="w-56 shrink-0 space-y-3">
-            <p className="text-xs text-neutral-500 uppercase tracking-wider">슬라이드 목록</p>
+          {/* 왼쪽: 슬라이드 목록 — 썸네일만 스크롤 */}
+          <div className="w-56 shrink-0 flex flex-col min-h-0 gap-3">
+            <p className="shrink-0 text-xs text-neutral-500 uppercase tracking-wider">슬라이드 목록</p>
             {result.outlier_slides.length > 0 && (
-              <IssueFilter
-                outlierSlides={result.outlier_slides}
-                activeFilter={activeFilter}
-                onFilterChange={(f) => {
-                  setActiveFilter(f);
-                  setCompareSlide(null);
-                }}
-              />
+              <div className="shrink-0">
+                <IssueFilter
+                  outlierSlides={result.outlier_slides}
+                  activeFilter={activeFilter}
+                  onFilterChange={(f) => {
+                    setActiveFilter(f);
+                    setCompareSlide(null);
+                  }}
+                />
+              </div>
             )}
-            <div className="overflow-y-auto max-h-[calc(100vh-320px)] pr-1">
+            <div className="flex-1 overflow-y-auto pr-1 min-h-0">
               <SlideGrid
                 fileId={result.file_id}
                 slideCount={result.slide_count}
@@ -231,7 +233,7 @@ export default function ResultPage() {
           </div>
 
           {/* 가운데: 선택된 슬라이드 미리보기 */}
-          <div className="flex-1 min-w-0 space-y-3">
+          <div className="flex-1 min-w-0 flex flex-col gap-3">
             <div className="flex items-center justify-end">
               <button
                 type="button"
@@ -269,7 +271,7 @@ export default function ResultPage() {
           </div>
 
           {/* 오른쪽: 상세 분석 */}
-          <div className="w-72 shrink-0">
+          <div className="w-72 shrink-0 overflow-y-auto">
             {showCompare ? (
               <ComparePanel
                 fileId={result.file_id}
