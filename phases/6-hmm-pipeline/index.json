@@ -37,7 +37,10 @@
     {
       "step": 4,
       "name": "schema-update",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-06-04T15:16:03+0900",
+      "completed_at": "2026-06-04T15:20:00+0900",
+      "summary": "SlideStats.slide_role, AnalysisResult.role_sequence/hmm_anomaly_score 추가 (Optional, 기본값 None), frontend api.ts 동기화"
     },
     {
       "step": 5,

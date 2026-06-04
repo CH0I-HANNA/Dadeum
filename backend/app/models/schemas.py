@@ -51,6 +51,7 @@ class SlideStats(BaseModel):
     text_area_ratio: float
     element_count: int
     dominant_font: str
+    slide_role: Optional[int] = None
 
 
 class OutlierSlide(BaseModel):
@@ -67,6 +68,8 @@ class AnalysisResult(BaseModel):
     outlier_slides: list[OutlierSlide]
     impact_score_after_fix: float
     slide_stats: list[SlideStats] = []
+    role_sequence: Optional[list[int]] = None
+    hmm_anomaly_score: Optional[float] = None
 
 
 class ResultResponse(TaskStatus):
