@@ -18,6 +18,7 @@ function getStage(elapsed: number, status: string): string {
   if (elapsed < 5)  return "파일 파싱 중...";
   if (elapsed < 15) return "특징 추출 중...";
   if (elapsed < 30) return "이상 슬라이드 탐지 중...";
+  if (elapsed < 90) return "발표 구조 분석 중...";
   return "결과 생성 중...";
 }
 

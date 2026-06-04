@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useAnalysis } from "../hooks/useAnalysis";
 import { getReportUrl, downloadFixedFile } from "../services/api";
 import ConsistencyScoreCard from "../components/score/ConsistencyScoreCard";
+import StructureScoreCard from "../components/score/StructureScoreCard";
 import SlideGrid from "../components/slides/SlideGrid";
 import IssueFilter from "../components/slides/IssueFilter";
 import type { FilterGroup } from "../components/slides/IssueFilter";
@@ -167,6 +168,10 @@ export default function ResultPage() {
 
         {/* 점수 카드 */}
         <ConsistencyScoreCard score={result.consistency_score} />
+        <StructureScoreCard
+          roleSequence={result.role_sequence}
+          hmmAnomalyScore={result.hmm_anomaly_score}
+        />
 
         {result.outlier_slides.length > 0 && (
           <p className="text-sm text-amber-400">
@@ -199,6 +204,7 @@ export default function ResultPage() {
                 selectedSlide={activeSlide}
                 compareSlide={compareMode ? compareSlide : null}
                 onSelectSlide={handleSelectSlide}
+                slideStats={result.slide_stats}
               />
             </div>
           </div>
