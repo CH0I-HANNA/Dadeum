@@ -39,8 +39,9 @@
     },
     {
       "dir": "7-hmm-frontend",
-      "status": "pending",
-      "description": "HMM 결과 프론트엔드 표시: 발표 구조 점수 카드, 역할 시퀀스 흐름, 슬라이드 역할 뱃지"
+      "status": "completed",
+      "description": "HMM 결과 프론트엔드 표시: 발표 구조 점수 카드, 역할 시퀀스 흐름, 슬라이드 역할 뱃지",
+      "completed_at": "2026-06-04T15:41:31+0900"
     },
     {
       "dir": "8-ux-polish",
