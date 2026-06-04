@@ -1,41 +1,14 @@
-import { useState } from "react";
 import type { OutlierSlide, SlideStats } from "../../types/api";
 import RootCauseList from "./RootCauseList";
 import RecommendationList from "./RecommendationList";
-import { getThumbnailUrl, getPreviewFixUrl } from "../../services/api";
 
 interface Props {
   selectedIndex: number | null;
   outlierSlides: OutlierSlide[];
   slideStats: SlideStats[];
-  fileId: string;
-  taskId: string;
 }
 
-function FixedPreviewImage({ src }: { src: string }) {
-  const [error, setError] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  if (error) return null;
-  return (
-    <div className="relative w-full">
-      {loading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-neutral-900 rounded">
-          <p className="text-xs text-neutral-500">로딩 중...</p>
-        </div>
-      )}
-      <img
-        src={src}
-        alt="수정 후 슬라이드"
-        className="w-full rounded"
-        onLoad={() => setLoading(false)}
-        onError={() => { setError(true); setLoading(false); }}
-      />
-    </div>
-  );
-}
-
-export default function DetailPanel({ selectedIndex, outlierSlides, slideStats, fileId, taskId }: Props) {
+export default function DetailPanel({ selectedIndex, outlierSlides, slideStats }: Props) {
   if (selectedIndex === null) {
     return (
       <div className="rounded-lg bg-[#111111] border border-neutral-800 p-4 flex items-center justify-center min-h-48">
@@ -137,27 +110,6 @@ export default function DetailPanel({ selectedIndex, outlierSlides, slideStats, 
           </div>
         </div>
       )}
-      <div>
-        <p className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-3">
-          수정 미리보기
-        </p>
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <p className="text-xs text-neutral-500 mb-1">현재</p>
-            <img
-              src={getThumbnailUrl(fileId, selectedIndex)}
-              alt="현재 슬라이드"
-              className="w-full rounded"
-            />
-          </div>
-          <div>
-            <p className="text-xs text-neutral-500 mb-1">수정 후</p>
-            <FixedPreviewImage
-              src={getPreviewFixUrl(fileId, selectedIndex, taskId)}
-            />
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

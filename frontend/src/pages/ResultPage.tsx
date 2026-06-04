@@ -281,8 +281,6 @@ export default function ResultPage() {
                 selectedIndex={activeSlide}
                 outlierSlides={result.outlier_slides}
                 slideStats={result.slide_stats}
-                fileId={result.file_id}
-                taskId={taskId ?? ""}
               />
             )}
           </div>
