@@ -31,7 +31,7 @@
       "name": "slide-renderer",
       "status": "completed",
       "started_at": "2026-06-04T15:12:50+0900",
-      "completed_at": "2026-06-04T15:30:00+0900",
+      "completed_at": "2026-06-04T15:16:03+0900",
       "summary": "render_pptx_slides(file_path) → list[PIL.Image 224×224] 구현"
     },
     {
