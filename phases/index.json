@@ -31,6 +31,11 @@
       "dir": "5-research-quality",
       "status": "pending",
       "description": "연구 품질 강화: 평가 재설계, CLIP weak label, baseline suite, sensitivity, 통계 검정"
+    },
+    {
+      "dir": "6-hmm-pipeline",
+      "status": "pending",
+      "description": "HMM+CNN 파이프라인 백엔드 통합: role_classifier_clip_best.pt + hmm_model.pkl 로드, 역할 시퀀스 예측 → HMM 이상 탐지, IF fallback 유지"
     }
   ]
 }
