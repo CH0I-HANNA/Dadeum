@@ -7,7 +7,8 @@
       "name": "config-models-dir",
       "status": "completed",
       "started_at": "2026-06-04T15:07:05+0900",
-      "summary": "MODELS_DIR=Path('models') 추가, requirements.txt ML deps(torch, timm, torchvision, hmmlearn) 추가"
+      "summary": "MODELS_DIR=Path('models') 추가, requirements.txt ML deps(torch, timm, torchvision, hmmlearn) 추가",
+      "completed_at": "2026-06-04T15:07:51+0900"
     },
     {
       "step": 1,
