@@ -1,0 +1,56 @@
+{
+  "project": "다듬",
+  "phase": "6-hmm-pipeline",
+  "steps": [
+    {
+      "step": 0,
+      "name": "config-models-dir",
+      "status": "completed",
+      "started_at": "2026-06-04T15:07:05+0900",
+      "summary": "MODELS_DIR=Path('models') 추가, requirements.txt ML deps(torch, timm, torchvision, hmmlearn) 추가",
+      "completed_at": "2026-06-04T15:07:51+0900"
+    },
+    {
+      "step": 1,
+      "name": "hmm-scorer",
+      "status": "completed",
+      "started_at": "2026-06-04T15:07:53+0900",
+      "completed_at": "2026-06-04T15:09:36+0900",
+      "summary": "HMMScorer 구현: score_sequence(role_sequence) → 0~1, load() → None(모델 없음) or HMMScorer"
+    },
+    {
+      "step": 2,
+      "name": "role-classifier",
+      "status": "completed",
+      "started_at": "2026-06-04T15:09:37+0900",
+      "completed_at": "2026-06-04T15:12:50+0900",
+      "summary": "RoleClassifier 구현: predict(PIL_images) → list[int 0~4], load() → None or RoleClassifier"
+    },
+    {
+      "step": 3,
+      "name": "slide-renderer",
+      "status": "completed",
+      "started_at": "2026-06-04T15:12:50+0900",
+      "completed_at": "2026-06-04T15:16:03+0900",
+      "summary": "render_pptx_slides(file_path) → list[PIL.Image 224×224] 구현"
+    },
+    {
+      "step": 4,
+      "name": "schema-update",
+      "status": "completed",
+      "started_at": "2026-06-04T15:16:03+0900",
+      "completed_at": "2026-06-04T15:16:50+0900",
+      "summary": "SlideStats.slide_role, AnalysisResult.role_sequence/hmm_anomaly_score 추가 (Optional, 기본값 None), frontend api.ts 동기화"
+    },
+    {
+      "step": 5,
+      "name": "analysis-service",
+      "status": "completed",
+      "started_at": "2026-06-04T15:16:50+0900",
+      "completed_at": "2026-06-04T15:18:06+0900",
+      "summary": "run_analysis()에 CNN+HMM 파이프라인 통합. 모델 없으면 role_sequence/hmm_anomaly_score=None fallback. timeout 180초로 연장"
+    }
+  ],
+  "created_at": "2026-06-04T15:07:05+0900",
+  "completed_at": "2026-06-04T15:18:06+0900"
+}

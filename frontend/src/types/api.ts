@@ -51,6 +51,7 @@ export interface SlideStats {
   text_area_ratio: number;
   element_count: number;
   dominant_font: string;
+  slide_role?: number | null;
 }
 
 export interface OutlierSlide {
@@ -67,4 +68,6 @@ export interface AnalysisResult {
   outlier_slides: OutlierSlide[];
   impact_score_after_fix: number;
   slide_stats: SlideStats[];
+  role_sequence?: number[] | null;
+  hmm_anomaly_score?: number | null;
 }

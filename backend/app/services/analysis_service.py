@@ -9,11 +9,14 @@ from app.models.schemas import AnalysisResult, OutlierSlide, SlideStats
 from app.pipeline.detector import OutlierDetector
 from app.pipeline.explainer import Explainer
 from app.pipeline.extractor import SlideFeatureExtractor
+from app.pipeline.hmm_scorer import HMMScorer
 from app.pipeline.parser import parse_file
 from app.pipeline.recommender import Recommender
+from app.pipeline.role_classifier import RoleClassifier
 from app.pipeline.scorer import compute_consistency_score
+from app.pipeline.slide_renderer import render_pptx_slides
 
-_TIMEOUT_SECONDS = 120
+_TIMEOUT_SECONDS = 180
 
 
 def run_analysis(file_path: str | Path, file_id: str) -> AnalysisResult:
@@ -35,6 +38,20 @@ def run_analysis(file_path: str | Path, file_id: str) -> AnalysisResult:
     recommendations_by_slide = recommender.recommend_all(root_causes_by_slide, feature_vectors)
     impact_score = recommender.estimate_impact_score(feature_vectors, recommendations_by_slide)
 
+    role_sequence: list[int] | None = None
+    hmm_anomaly_score: float | None = None
+
+    # PPTX 파일에만 CNN+HMM 파이프라인 적용
+    if Path(file_path).suffix.lower() == ".pptx":
+        role_classifier = RoleClassifier.load()
+        if role_classifier is not None:
+            images = render_pptx_slides(Path(file_path))
+            role_sequence = role_classifier.predict(images)
+
+        hmm_scorer = HMMScorer.load()
+        if hmm_scorer is not None and role_sequence:
+            hmm_anomaly_score = hmm_scorer.score_sequence(role_sequence)
+
     known_fonts = SlideFeatureExtractor.KNOWN_FONTS
 
     slide_stats: list[SlideStats] = []
@@ -52,6 +69,7 @@ def run_analysis(file_path: str | Path, file_id: str) -> AnalysisResult:
             dominant_font = known_fonts[best_idx]
         else:
             dominant_font = "Other"
+        slide_role = role_sequence[i] if role_sequence and i < len(role_sequence) else None
         slide_stats.append(
             SlideStats(
                 slide_index=i,
@@ -60,6 +78,7 @@ def run_analysis(file_path: str | Path, file_id: str) -> AnalysisResult:
                 text_area_ratio=round(text_area_ratio, 4),
                 element_count=element_count,
                 dominant_font=dominant_font,
+                slide_role=slide_role,
             )
         )
 
@@ -84,6 +103,8 @@ def run_analysis(file_path: str | Path, file_id: str) -> AnalysisResult:
         outlier_slides=outlier_slides,
         impact_score_after_fix=impact_score,
         slide_stats=slide_stats,
+        role_sequence=role_sequence,
+        hmm_anomaly_score=hmm_anomaly_score,
     )
 
 
