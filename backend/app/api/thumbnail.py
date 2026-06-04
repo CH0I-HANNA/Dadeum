@@ -262,19 +262,16 @@ def _render_pptx_slide(file_path: Path, slide_index: int) -> bytes:
 
 
 def _render_pdf_slide(file_path: Path, slide_index: int) -> bytes:
-    from pdf2image import convert_from_path
+    import fitz
 
-    images = convert_from_path(
-        str(file_path),
-        dpi=150,
-        first_page=slide_index + 1,
-        last_page=slide_index + 1,
-        size=(_THUMBNAIL_WIDTH, None),
-    )
-    if not images:
-        raise ValueError("페이지 변환 실패")
-    buf = io.BytesIO()
-    images[0].save(buf, format="PNG")
+    doc = fitz.open(str(file_path))
+    if slide_index >= len(doc):
+        raise ValueError("슬라이드 번호가 범위를 벗어났습니다.")
+    page = doc[slide_index]
+    scale = _THUMBNAIL_WIDTH / page.rect.width
+    mat = fitz.Matrix(scale, scale)
+    pix = page.get_pixmap(matrix=mat)
+    buf = io.BytesIO(pix.tobytes("png"))
     return buf.getvalue()
 
 
