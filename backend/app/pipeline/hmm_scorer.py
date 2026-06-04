@@ -1,48 +1,61 @@
 from __future__ import annotations
 
-import json
-import pickle
 from typing import Optional
 
-import numpy as np
+# 역할 인덱스 상수
+ROLE_COVER = 0    # 표지
+ROLE_SECTION = 1  # 섹션헤더
+ROLE_BODY = 2     # 본문
+ROLE_VISUAL = 3   # 도표/시각자료
+ROLE_CLOSING = 4  # 마무리
 
-from app.core.config import MODELS_DIR
+
+def _rule_based_score(role_sequence: list[int]) -> float:
+    """규칙 기반 구조 이상 점수 (0~1, 높을수록 이상).
+
+    규칙:
+    1. 표지(0)가 첫 슬라이드 이후에 등장 — 각 등장마다 +0.25
+    2. 마무리(4)가 마지막 슬라이드 이전에 등장 — 각 등장마다 +0.20
+    3. 같은 역할이 4번 이상 연속 — +0.15
+    4. 마무리 다음에 표지/섹션/본문이 오는 경우 — 각 위반마다 +0.20
+    """
+    n = len(role_sequence)
+    if n < 3:
+        return 0.0
+
+    penalty = 0.0
+
+    for i, role in enumerate(role_sequence):
+        # 규칙 1: 표지가 첫 슬라이드 이후 등장
+        if role == ROLE_COVER and i > 0:
+            penalty += 0.25
+
+        # 규칙 2: 마무리가 마지막 슬라이드 이전 등장
+        if role == ROLE_CLOSING and i < n - 1:
+            penalty += 0.20
+
+        # 규칙 4: 마무리 다음에 내용 슬라이드 등장
+        if i > 0 and role_sequence[i - 1] == ROLE_CLOSING:
+            if role in (ROLE_COVER, ROLE_SECTION, ROLE_BODY, ROLE_VISUAL):
+                penalty += 0.20
+
+    # 규칙 3: 동일 역할 4번 이상 연속
+    run_len = 1
+    for i in range(1, n):
+        if role_sequence[i] == role_sequence[i - 1]:
+            run_len += 1
+            if run_len == 4:
+                penalty += 0.15
+        else:
+            run_len = 1
+
+    return min(1.0, penalty)
 
 
 class HMMScorer:
-    def __init__(self, model, thresholds: dict) -> None:
-        self._model = model
-        self._mean: float = thresholds["mean"]
-        self._std: float = thresholds["std"]
-
     def score_sequence(self, role_sequence: list[int]) -> float:
-        """역할 시퀀스 → 이상 점수 (0~1, 높을수록 이상).
-        시퀀스 길이 < 5이면 0.5 반환.
-        """
-        if len(role_sequence) < 5:
-            return 0.5
-
-        seq = np.array(role_sequence).reshape(-1, 1)
-        ll = self._model.score(seq) / len(role_sequence)
-        z = (self._mean - ll) / (self._std + 1e-8)
-        return float(np.clip(z / 3.0, 0.0, 1.0))
+        return _rule_based_score(role_sequence)
 
     @classmethod
-    def load(cls) -> Optional["HMMScorer"]:
-        """MODELS_DIR/hmm_model.pkl + hmm_thresholds.json 로드.
-        파일 미존재 또는 로드 실패 시 None 반환.
-        """
-        pkl_path = MODELS_DIR / "hmm_model.pkl"
-        json_path = MODELS_DIR / "hmm_thresholds.json"
-
-        if not pkl_path.exists() or not json_path.exists():
-            return None
-
-        try:
-            with open(pkl_path, "rb") as f:
-                model = pickle.load(f)
-            with open(json_path, "r") as f:
-                thresholds = json.load(f)
-            return cls(model, thresholds)
-        except Exception:
-            return None
+    def load(cls) -> "HMMScorer":
+        return cls()

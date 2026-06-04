@@ -48,9 +48,8 @@ def run_analysis(file_path: str | Path, file_id: str) -> AnalysisResult:
             images = render_slides(Path(file_path))
             role_sequence = role_classifier.predict(images)
 
-        hmm_scorer = HMMScorer.load()
-        if hmm_scorer is not None and role_sequence:
-            hmm_anomaly_score = hmm_scorer.score_sequence(role_sequence)
+        if role_sequence:
+            hmm_anomaly_score = HMMScorer.load().score_sequence(role_sequence)
 
     known_fonts = SlideFeatureExtractor.KNOWN_FONTS
 
