@@ -21,7 +21,10 @@
     {
       "step": 2,
       "name": "role-classifier",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-06-04T15:09:37+0900",
+      "completed_at": "2026-06-04T15:25:00+0900",
+      "summary": "RoleClassifier 구현: predict(PIL_images) → list[int 0~4], load() → None or RoleClassifier"
     },
     {
       "step": 3,
