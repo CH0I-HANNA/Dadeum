@@ -46,10 +46,15 @@ export async function downloadFixedFile(fileId: string, taskId: string): Promise
     { task_id: taskId },
     { responseType: "blob" }
   );
+
+  const disposition = response.headers["content-disposition"] as string | undefined;
+  const match = disposition?.match(/filename="?([^";\n]+)"?/);
+  const filename = match?.[1] ?? `dadeum-fixed-${fileId.slice(0, 8)}.pptx`;
+
   const url = URL.createObjectURL(new Blob([response.data]));
   const a = document.createElement("a");
   a.href = url;
-  a.download = `dadeum-fixed-${fileId.slice(0, 8)}.pptx`;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
 }
