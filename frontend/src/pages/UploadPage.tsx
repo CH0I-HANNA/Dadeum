@@ -13,14 +13,19 @@ function isAccepted(file: File): boolean {
 export default function UploadPage() {
   const { upload, isUploading, error } = useUpload();
   const [dragOver, setDragOver] = useState(false);
+  const [fileTypeError, setFileTypeError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = (file: File) => {
     if (!isAccepted(file)) {
+      setFileTypeError("PPTX 또는 PDF 파일만 업로드할 수 있습니다.");
       return;
     }
+    setFileTypeError(null);
     upload(file);
   };
+
+  const displayError = error || fileTypeError;
 
   const onDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -106,8 +111,8 @@ export default function UploadPage() {
           )}
         </div>
 
-        {error && (
-          <p className="mt-3 text-sm text-red-400 text-center">{error}</p>
+        {displayError && (
+          <p className="mt-3 text-sm text-red-400 text-center">{displayError}</p>
         )}
 
         <p className="mt-4 text-xs text-neutral-600 text-center">

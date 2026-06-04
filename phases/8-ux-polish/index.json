@@ -2,8 +2,23 @@
   "project": "다듬",
   "phase": "8-ux-polish",
   "steps": [
-    { "step": 0, "name": "upload-errors", "status": "pending" },
-    { "step": 1, "name": "result-states", "status": "pending" },
-    { "step": 2, "name": "download-thumbnail", "status": "pending" }
-  ]
+    {
+      "step": 0,
+      "name": "upload-errors",
+      "status": "completed",
+      "started_at": "2026-06-04T15:45:08+0900",
+      "summary": "UploadPage 파일 타입 에러 메시지 추가, useUpload HTTP 상태 코드별 메시지 매핑"
+    },
+    {
+      "step": 1,
+      "name": "result-states",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "download-thumbnail",
+      "status": "pending"
+    }
+  ],
+  "created_at": "2026-06-04T15:45:08+0900"
 }
