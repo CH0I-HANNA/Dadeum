@@ -1,0 +1,29 @@
+{
+  "project": "다듬",
+  "phase": "7-hmm-frontend",
+  "steps": [
+    {
+      "step": 0,
+      "name": "structure-score-card",
+      "status": "completed",
+      "started_at": "2026-06-04T15:34:20+0900",
+      "summary": "StructureScoreCard 생성: hmm_anomaly_score 게이지 + role_sequence 흐름(12개 초과 시 truncate), 각각 null 독립 처리"
+    },
+    {
+      "step": 1,
+      "name": "slide-role-badge",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "detail-compare-role",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "result-page-update",
+      "status": "pending"
+    }
+  ],
+  "created_at": "2026-06-04T15:34:20+0900"
+}
