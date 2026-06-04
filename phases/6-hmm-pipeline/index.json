@@ -47,7 +47,7 @@
       "name": "analysis-service",
       "status": "completed",
       "started_at": "2026-06-04T15:16:50+0900",
-      "completed_at": "2026-06-04T15:30:00+0900",
+      "completed_at": "2026-06-04T15:18:06+0900",
       "summary": "run_analysis()에 CNN+HMM 파이프라인 통합. 모델 없으면 role_sequence/hmm_anomaly_score=None fallback. timeout 180초로 연장"
     }
   ],
