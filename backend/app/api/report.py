@@ -35,6 +35,7 @@ def _build_pdf(result: AnalysisResult, task_id: str) -> bytes:
 
     if korean_font_path:
         pdf.add_font("Korean", fname=korean_font_path)
+        pdf.add_font("Korean", style="B", fname=korean_font_path)
 
     # ── 헤더 ──────────────────────────────────────────────
     set_font(18, "B")
