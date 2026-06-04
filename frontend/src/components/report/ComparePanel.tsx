@@ -91,6 +91,14 @@ export default function ComparePanel({
             </tr>
           </thead>
           <tbody>
+            {statsA.slide_role != null && statsB.slide_role != null && (
+              <StatRow
+                label="역할"
+                a={["표지", "섹션헤더", "본문", "도표/시각자료", "마무리"][statsA.slide_role] ?? ""}
+                b={["표지", "섹션헤더", "본문", "도표/시각자료", "마무리"][statsB.slide_role] ?? ""}
+                highlight={statsA.slide_role !== statsB.slide_role}
+              />
+            )}
             <StatRow
               label="주요 폰트"
               a={statsA.dominant_font}

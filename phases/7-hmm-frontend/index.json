@@ -1,0 +1,40 @@
+{
+  "project": "다듬",
+  "phase": "7-hmm-frontend",
+  "steps": [
+    {
+      "step": 0,
+      "name": "structure-score-card",
+      "status": "completed",
+      "started_at": "2026-06-04T15:34:20+0900",
+      "summary": "StructureScoreCard 생성: hmm_anomaly_score 게이지 + role_sequence 흐름(12개 초과 시 truncate), 각각 null 독립 처리",
+      "completed_at": "2026-06-04T15:36:30+0900"
+    },
+    {
+      "step": 1,
+      "name": "slide-role-badge",
+      "status": "completed",
+      "started_at": "2026-06-04T15:36:30+0900",
+      "summary": "SlideThumbnail에 slideRole 뱃지 추가, SlideGrid에 slideStats prop 추가",
+      "completed_at": "2026-06-04T15:38:06+0900"
+    },
+    {
+      "step": 2,
+      "name": "detail-compare-role",
+      "status": "completed",
+      "started_at": "2026-06-04T15:38:06+0900",
+      "summary": "DetailPanel + ComparePanel에 slide_role 행 추가, null이면 미렌더링",
+      "completed_at": "2026-06-04T15:40:10+0900"
+    },
+    {
+      "step": 3,
+      "name": "result-page-update",
+      "status": "completed",
+      "started_at": "2026-06-04T15:40:10+0900",
+      "summary": "ResultPage에 StructureScoreCard 삽입 + SlideGrid slideStats 연결, useAnalysis stage 90초까지 확장",
+      "completed_at": "2026-06-04T15:41:31+0900"
+    }
+  ],
+  "created_at": "2026-06-04T15:34:20+0900",
+  "completed_at": "2026-06-04T15:41:31+0900"
+}

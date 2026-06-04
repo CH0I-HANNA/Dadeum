@@ -36,6 +36,17 @@
       "status": "completed",
       "description": "HMM+CNN 파이프라인 백엔드 통합: role_classifier_clip_best.pt + hmm_model.pkl 로드, 역할 시퀀스 예측 → HMM 이상 탐지, IF fallback 유지",
       "completed_at": "2026-06-04T15:18:06+0900"
+    },
+    {
+      "dir": "7-hmm-frontend",
+      "status": "completed",
+      "description": "HMM 결과 프론트엔드 표시: 발표 구조 점수 카드, 역할 시퀀스 흐름, 슬라이드 역할 뱃지",
+      "completed_at": "2026-06-04T15:41:31+0900"
+    },
+    {
+      "dir": "8-ux-polish",
+      "status": "pending",
+      "description": "UX 버그 수정 및 개선: 업로드 에러 처리, 결과 페이지 상태 개선, 다운로드/썸네일 버그 수정"
     }
   ]
 }

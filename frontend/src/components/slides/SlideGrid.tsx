@@ -1,4 +1,4 @@
-import type { OutlierSlide } from "../../types/api";
+import type { OutlierSlide, SlideStats } from "../../types/api";
 import SlideThumbnail from "./SlideThumbnail";
 
 interface Props {
@@ -8,6 +8,7 @@ interface Props {
   selectedSlide: number | null;
   compareSlide?: number | null;
   onSelectSlide: (index: number) => void;
+  slideStats?: SlideStats[];
 }
 
 export default function SlideGrid({
@@ -17,6 +18,7 @@ export default function SlideGrid({
   selectedSlide,
   compareSlide = null,
   onSelectSlide,
+  slideStats,
 }: Props) {
   const outlierSet = new Set(outlierSlides.map((s) => s.slide_index));
 
@@ -31,6 +33,7 @@ export default function SlideGrid({
           isSelected={selectedSlide === i}
           isCompare={compareSlide === i}
           onClick={() => onSelectSlide(i)}
+          slideRole={slideStats?.find((s) => s.slide_index === i)?.slide_role}
         />
       ))}
     </div>
