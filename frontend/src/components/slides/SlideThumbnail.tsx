@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { getThumbnailUrl } from "../../services/api";
 
 const ROLE_LABELS: Record<number, string> = {
@@ -36,6 +37,8 @@ export default function SlideThumbnail({
   slideRole,
 }: Props) {
   const url = getThumbnailUrl(fileId, slideNum);
+  const [loaded, setLoaded] = useState(false);
+  const [imgError, setImgError] = useState(false);
 
   return (
     <button
@@ -50,10 +53,17 @@ export default function SlideThumbnail({
         .filter(Boolean)
         .join(" ")}
     >
+      {!loaded && (
+        <div
+          className={`aspect-video w-full bg-neutral-800${imgError ? "" : " animate-pulse"}`}
+        />
+      )}
       <img
         src={url}
         alt={`슬라이드 ${slideNum + 1}`}
-        className="w-full h-auto block"
+        className={`w-full h-auto block${!loaded ? " hidden" : ""}`}
+        onLoad={() => setLoaded(true)}
+        onError={() => setImgError(true)}
       />
       <span className="absolute bottom-1 left-1 text-xs text-white/80 bg-black/60 px-1.5 py-0.5 rounded">
         {slideNum + 1}

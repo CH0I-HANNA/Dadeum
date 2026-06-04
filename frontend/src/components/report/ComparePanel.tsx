@@ -53,13 +53,13 @@ export default function ComparePanel({
 
       <div className="grid grid-cols-2 gap-2">
         {[
-          { idx: indexA, outlier: outlierA },
-          { idx: indexB, outlier: outlierB },
-        ].map(({ idx, outlier }) => (
+          { idx: indexA, outlier: outlierA, label: "A" },
+          { idx: indexB, outlier: outlierB, label: "B" },
+        ].map(({ idx, outlier, label }) => (
           <div key={idx} className="space-y-1">
             <div
               className={[
-                "overflow-hidden rounded",
+                "relative overflow-hidden rounded",
                 outlier ? "border border-amber-400" : "border border-neutral-700",
               ].join(" ")}
             >
@@ -68,6 +68,9 @@ export default function ComparePanel({
                 alt={`슬라이드 ${idx + 1}`}
                 className="w-full h-auto block"
               />
+              <span className="absolute top-0.5 left-0.5 text-[10px] bg-black/70 text-neutral-300 px-1 rounded">
+                {label}
+              </span>
             </div>
             <p className="text-xs text-center text-neutral-400">
               슬라이드 {idx + 1}

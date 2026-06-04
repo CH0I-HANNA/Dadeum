@@ -262,7 +262,7 @@ export default function ResultPage() {
             />
 
             <p className="text-xs text-neutral-600">
-              썸네일은 실제 슬라이드를 렌더링한 것입니다.
+              썸네일은 실제 슬라이드와 다를 수 있습니다.
             </p>
           </div>
 
