@@ -7,7 +7,8 @@
       "name": "upload-errors",
       "status": "completed",
       "started_at": "2026-06-04T15:45:08+0900",
-      "summary": "UploadPage 파일 타입 에러 메시지 추가, useUpload HTTP 상태 코드별 메시지 매핑"
+      "summary": "UploadPage 파일 타입 에러 메시지 추가, useUpload HTTP 상태 코드별 메시지 매핑",
+      "completed_at": "2026-06-04T15:46:21+0900"
     },
     {
       "step": 1,
